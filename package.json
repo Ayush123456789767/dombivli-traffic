@@ -1,12 +1,14 @@
 {
-  "name": "dombivli-traffic-monitor",
+  "name": "traffic-monitor-west",
   "version": "1.0.0",
+  "description": "24/7 Traffic Monitor West - Dombivli City",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "twilio": "^4.23.0"
   }
 }
