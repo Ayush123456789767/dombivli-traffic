@@ -5,133 +5,33 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 API KEYS (From Render Environment Variables)
+// 🔑 API KEYS (Set in Render Environment Variables)
 const TOMTOM_KEY = process.env.TOMTOM_KEY || "YOUR_TOMTOM_KEY_HERE";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "YOUR_TELEGRAM_CHAT_ID";
 
-// 📍 20 EXACT DOMBIVLI WEST LOCATIONS (With Verified Google Maps Landmark Queries)
+// 📍 20 EXACT DOMBIVLI WEST LOCATIONS (Direct Pin-Point GPS Coordinates)
 const spots = [
-  { 
-    id: 1,  
-    name: "East-West Flyover (Centre)",          
-    lat: 19.2185, lng: 73.0880, 
-    mapQuery: "Dombivli+Station+Flyover+West+Dombivli+Maharashtra" 
-  },
-  { 
-    id: 2,  
-    name: "Kopar Road (West)",                   
-    lat: 19.2210, lng: 73.0855, 
-    mapQuery: "Kopar+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 3,  
-    name: "Retibandar Road (West)",              
-    lat: 19.2120, lng: 73.0810, 
-    mapQuery: "Reti+Bandar+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 4,  
-    name: "Retibandar Cross Road (West)",        
-    lat: 19.2135, lng: 73.0820, 
-    mapQuery: "Retibandar+Cross+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 5,  
-    name: "Pandit Deendayal Upadhyay Marg (West)",  
-    lat: 19.2165, lng: 73.0845, 
-    mapQuery: "Pandit+Deendayal+Upadhyay+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 6,  
-    name: "Mumbra Devi Road (West)",             
-    lat: 19.2130, lng: 73.0805, 
-    mapQuery: "Mumbra+Devi+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 7,  
-    name: "Elephant Fountain Circle / Hathi Chowk (West)",     
-    lat: 19.2170, lng: 73.0850, 
-    mapQuery: "Hathi+Chowk+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 8,  
-    name: "Ghanshyam Gupte Road (West)",         
-    lat: 19.2155, lng: 73.0840, 
-    mapQuery: "Ghanshyam+Gupte+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 9,  
-    name: "Nana Shankar Seth Road (West)",       
-    lat: 19.2145, lng: 73.0830, 
-    mapQuery: "Nana+Shankarsheth+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 10, 
-    name: "Ganesh Chowk (West)",                 
-    lat: 19.2175, lng: 73.0860, 
-    mapQuery: "Ganesh+Chowk+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 11, 
-    name: "Mahatma Phule Road (West)",           
-    lat: 19.2140, lng: 73.0820, 
-    mapQuery: "Mahatma+Phule+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 12, 
-    name: "Subhash Chandra Bose Road (West)",    
-    lat: 19.2150, lng: 73.0835, 
-    mapQuery: "Subhash+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 13, 
-    name: "Mahatma Gandhi Road (West)",          
-    lat: 19.2175, lng: 73.0852, 
-    mapQuery: "Mahatma+Gandhi+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 14, 
-    name: "Gokhale Road (West)",                 
-    lat: 19.2152, lng: 73.0835, 
-    mapQuery: "Gokhale+Road+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 15, 
-    name: "Thakurli Flyover (West)",             
-    lat: 19.2220, lng: 73.0920, 
-    mapQuery: "Thakurli+Railway+Overbridge+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 16, 
-    name: "East to West Thakurli Bridge (West)",    
-    lat: 19.2215, lng: 73.0930, 
-    mapQuery: "Thakurli+Bridge+Dombivli+Maharashtra" 
-  },
-  { 
-    id: 17, 
-    name: "Everest Gali (West)",                 
-    lat: 19.2165, lng: 73.0855, 
-    mapQuery: "Everest+Shopping+Center+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 18, 
-    name: "Ghanshyam Gupte Cross Road No.1 (West)",   
-    lat: 19.2158, lng: 73.0842, 
-    mapQuery: "Ghanshyam+Gupte+Cross+Road+1+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 19, 
-    name: "Thakurwadi Road (West)",              
-    lat: 19.2185, lng: 73.0865, 
-    mapQuery: "Thakurwadi+Dombivli+West+Maharashtra" 
-  },
-  { 
-    id: 20, 
-    name: "Deva Chowk (West)",                   
-    lat: 19.2180, lng: 73.0870, 
-    mapQuery: "Deva+Chowk+Dombivli+West+Maharashtra" 
-  }
+  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.21780, lng: 73.08805 },
+  { id: 2,  name: "Kopar Road (West)",                   lat: 19.22080, lng: 73.08550 },
+  { id: 3,  name: "Retibandar Road (West)",              lat: 19.21180, lng: 73.07920 },
+  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.21320, lng: 73.08150 },
+  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.21620, lng: 73.08480 },
+  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.21280, lng: 73.08050 },
+  { id: 7,  name: "Elephant Fountain Circle / Hathi Chowk (W)", lat: 19.21695, lng: 73.08502 },
+  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.21580, lng: 73.08420 },
+  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.21480, lng: 73.08310 },
+  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.21820, lng: 73.08620 },
+  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.21390, lng: 73.08190 },
+  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.21660, lng: 73.08560 },
+  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.21740, lng: 73.08510 },
+  { id: 14, name: "Gokhale Road (West)",                 lat: 19.21530, lng: 73.08340 },
+  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.22380, lng: 73.09150 },
+  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.22450, lng: 73.09350 },
+  { id: 17, name: "Everest Gali (West)",                 lat: 19.21715, lng: 73.08575 },
+  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.21570, lng: 73.08390 },
+  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.21950, lng: 73.08650 },
+  { id: 20, name: "Deva Chowk (West)",                   lat: 19.21915, lng: 73.08685 }
 ];
 
 let liveTrafficData = spots.map(s => ({
@@ -167,7 +67,7 @@ async function sendTelegramAlert(htmlMessage) {
     });
     console.log(`📱 Telegram alert dispatched!`);
   } catch (err) {
-    console.error(`❌ Telegram error:`, err.message);
+    console.error(`❌ Telegram dispatch error:`, err.message);
   }
 }
 
@@ -201,14 +101,14 @@ async function checkSpotTraffic(spot) {
       let lastAlertSentAt = existing ? existing.lastAlertSentAt : null;
       let isAlert = false;
       
-      // Fixed Google Maps Direct Landmark URL
-      const mapLink = `https://www.google.com/maps/search/?api=1&query=${spot.mapQuery}`;
+      // Exact Coordinate Pin Link with street-level zoom
+      const mapLink = `https://www.google.com/maps?q=${spot.lat},${spot.lng}&z=19`;
 
       if (status === 'red') {
         if (!redSince) redSince = Date.now();
         const minsStuck = Math.floor((Date.now() - redSince) / 60000);
 
-        // 🚨 5-Minute Jam Threshold
+        // 🚨 5-Minute Jam Alert Trigger
         if (minsStuck >= 5) {
           isAlert = true;
           const now = Date.now();
@@ -223,7 +123,7 @@ async function checkSpotTraffic(spot) {
 🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
 ⏳ <b>Estimated Delay:</b> +${delayMinutes} mins
 
-🗺️ <a href="${mapLink}">👉 Open Exact Spot in Google Maps</a>
+🗺️ <a href="${mapLink}">👉 Open Exact GPS Pin in Google Maps</a>
 
 <i>Next update in 5 mins if congestion continues.</i>
 — <b>Traffic Monitor West 🚦</b>`;
@@ -352,7 +252,7 @@ app.get('/', (req, res) => {
               <div>Normal: <strong>\${s.freeFlowSpeed} km/h</strong></div>
               <div>Delay: <strong>\${s.delayMinutes>0?'+'+s.delayMinutes+' min':'None'}</strong></div>
             </div>
-            <a href="https://www.google.com/maps/search/?api=1&query=\${s.mapQuery}" target="_blank" class="map-btn">🗺️ Open Exact Spot in Google Maps ↗</a>\`;
+            <a href="https://www.google.com/maps?q=\${s.lat},\${s.lng}&z=19" target="_blank" class="map-btn">📍 Open Pin-Point GPS in Maps ↗</a>\`;
           g.appendChild(c);
         });
       }catch(e){}
