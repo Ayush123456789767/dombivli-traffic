@@ -5,33 +5,33 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 API KEYS (Set in Render Environment Variables)
+// 🔑 API KEYS (Configured in Render Environment Variables)
 const TOMTOM_KEY = process.env.TOMTOM_KEY || "YOUR_TOMTOM_KEY_HERE";
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "YOUR_TELEGRAM_CHAT_ID";
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
-// 📍 20 EXACT DOMBIVLI WEST LOCATIONS (Direct Pin-Point GPS Coordinates)
+// 📍 20 DOMBIVLI WEST LOCATIONS
 const spots = [
-  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.21780, lng: 73.08805 },
-  { id: 2,  name: "Kopar Road (West)",                   lat: 19.22080, lng: 73.08550 },
-  { id: 3,  name: "Retibandar Road (West)",              lat: 19.21180, lng: 73.07920 },
-  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.21320, lng: 73.08150 },
-  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.21620, lng: 73.08480 },
-  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.21280, lng: 73.08050 },
-  { id: 7,  name: "Elephant Fountain Circle / Hathi Chowk (W)", lat: 19.21695, lng: 73.08502 },
-  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.21580, lng: 73.08420 },
-  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.21480, lng: 73.08310 },
-  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.21820, lng: 73.08620 },
-  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.21390, lng: 73.08190 },
-  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.21660, lng: 73.08560 },
-  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.21740, lng: 73.08510 },
-  { id: 14, name: "Gokhale Road (West)",                 lat: 19.21530, lng: 73.08340 },
-  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.22380, lng: 73.09150 },
-  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.22450, lng: 73.09350 },
-  { id: 17, name: "Everest Gali (West)",                 lat: 19.21715, lng: 73.08575 },
-  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.21570, lng: 73.08390 },
-  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.21950, lng: 73.08650 },
-  { id: 20, name: "Deva Chowk (West)",                   lat: 19.21915, lng: 73.08685 }
+  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.2183, lng: 73.0878 },
+  { id: 2,  name: "Kopar Road (West)",                   lat: 19.2225, lng: 73.0845 },
+  { id: 3,  name: "Retibandar Road (West)",              lat: 19.2105, lng: 73.0768 },
+  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.2122, lng: 73.0795 },
+  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.2162, lng: 73.0846 },
+  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.2128, lng: 73.0808 },
+  { id: 7,  name: "Elephant Fountain Circle (Hathi Chowk)", lat: 19.2170, lng: 73.0850 },
+  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.2158, lng: 73.0842 },
+  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.2145, lng: 73.0830 },
+  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.2180, lng: 73.0862 },
+  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.2138, lng: 73.0818 },
+  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.2165, lng: 73.0855 },
+  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.2175, lng: 73.0850 },
+  { id: 14, name: "Gokhale Road (West)",                 lat: 19.2152, lng: 73.0834 },
+  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.2238, lng: 73.0905 },
+  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.2248, lng: 73.0938 },
+  { id: 17, name: "Everest Gali (West)",                 lat: 19.2172, lng: 73.0858 },
+  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.2157, lng: 73.0839 },
+  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.2195, lng: 73.0865 },
+  { id: 20, name: "Deva Chowk (West)",                   lat: 19.2190, lng: 73.0868 }
 ];
 
 let liveTrafficData = spots.map(s => ({
@@ -49,10 +49,9 @@ let liveTrafficData = spots.map(s => ({
 let lastCheckTime = null;
 let isNightMode = false;
 
-// 📲 Send Instant Alert to Telegram
+// 📲 Send Telegram Alert
 async function sendTelegramAlert(htmlMessage) {
-  if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.startsWith("YOUR_")) return;
-
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
   try {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     await fetch(url, {
@@ -65,13 +64,13 @@ async function sendTelegramAlert(htmlMessage) {
         disable_web_page_preview: false
       })
     });
-    console.log(`📱 Telegram alert dispatched!`);
+    console.log(`📱 Telegram alert sent!`);
   } catch (err) {
-    console.error(`❌ Telegram dispatch error:`, err.message);
+    console.error(`❌ Telegram error:`, err.message);
   }
 }
 
-// 🚦 Check One Spot Traffic
+// 🚦 Check Spot Traffic
 async function checkSpotTraffic(spot) {
   const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${spot.lat},${spot.lng}&unit=KMPH&key=${TOMTOM_KEY}`;
   try {
@@ -100,15 +99,13 @@ async function checkSpotTraffic(spot) {
       let redSince = existing ? existing.redSince : null;
       let lastAlertSentAt = existing ? existing.lastAlertSentAt : null;
       let isAlert = false;
-      
-      // Exact Coordinate Pin Link with street-level zoom
-      const mapLink = `https://www.google.com/maps?q=${spot.lat},${spot.lng}&z=19`;
+      const mapLink = `https://maps.google.com/?q=${spot.lat},${spot.lng}&ll=${spot.lat},${spot.lng}&z=19`;
 
       if (status === 'red') {
         if (!redSince) redSince = Date.now();
         const minsStuck = Math.floor((Date.now() - redSince) / 60000);
 
-        // 🚨 5-Minute Jam Alert Trigger
+        // 🚨 5-Minute Alert Trigger
         if (minsStuck >= 5) {
           isAlert = true;
           const now = Date.now();
@@ -119,11 +116,11 @@ async function checkSpotTraffic(spot) {
 `🚨 <b>TRAFFIC MONITOR WEST — DISPATCH ALERT</b> 🚨
 
 📍 <b>Spot:</b> ${spot.name}
-⏱️ <b>Status:</b> STATIONARY for <b>${minsStuck}+ minutes!</b>
+⏱️ <b>Status:</b> Stationary for <b>${minsStuck}+ minutes!</b>
 🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
 ⏳ <b>Estimated Delay:</b> +${delayMinutes} mins
 
-🗺️ <a href="${mapLink}">👉 Open Exact GPS Pin in Google Maps</a>
+🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
 
 <i>Next update in 5 mins if congestion continues.</i>
 — <b>Traffic Monitor West 🚦</b>`;
@@ -147,9 +144,9 @@ async function checkSpotTraffic(spot) {
 
 // 🔄 24/7 Monitoring Loop
 async function monitorAll() {
-  // 🌙 NIGHT MODE: 12 AM – 8 AM IST (0 calls to save quota)
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
+  // 🌙 Night Mode 12 AM - 8 AM IST
   if (istHour >= 0 && istHour < 8) {
     if (!isNightMode) {
       console.log(`🌙 Night Mode active (12 AM - 8 AM) — Pausing scans.`);
@@ -221,6 +218,7 @@ app.get('/', (req, res) => {
     .tag.yellow{background:#713f12;color:#fde047}
     .tag.gray{background:#334155;color:#94a3b8}
     .metrics{display:flex;justify-content:space-between;background:#0f172a;padding:8px;border-radius:6px;margin:10px 0;font-size:12px}
+    .coords{font-size:11px;color:#64748b;margin-bottom:8px;text-align:center}
     .map-btn{display:block;text-align:center;background:#0f172a;color:#38bdf8;padding:8px;border-radius:5px;text-decoration:none;font-size:12px;font-weight:bold;border:1px solid #334155;transition:0.2s}
     .map-btn:hover{background:#38bdf8;color:#0f172a}
   </style>
@@ -228,7 +226,7 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <h1>🚦 Traffic Monitor West</h1>
-    <p class="subtitle">20 Pinpoint Locations • 3-Min Scan • Telegram Alert Dispatch</p>
+    <p class="subtitle">20 Pinpoint Locations • 3-Min Scan • Telegram Dispatch</p>
   </header>
   <div class="bar">
     <div><span class="pulse"></span> <strong id="mode">SYSTEM ACTIVE 24/7</strong></div>
@@ -252,7 +250,8 @@ app.get('/', (req, res) => {
               <div>Normal: <strong>\${s.freeFlowSpeed} km/h</strong></div>
               <div>Delay: <strong>\${s.delayMinutes>0?'+'+s.delayMinutes+' min':'None'}</strong></div>
             </div>
-            <a href="https://www.google.com/maps?q=\${s.lat},\${s.lng}&z=19" target="_blank" class="map-btn">📍 Open Pin-Point GPS in Maps ↗</a>\`;
+            <div class="coords">GPS: \${s.lat}, \${s.lng}</div>
+            <a href="https://maps.google.com/?q=\${s.lat},\${s.lng}&ll=\${s.lat},\${s.lng}&z=19" target="_blank" class="map-btn">📍 Open Exact Pin in Google Maps ↗</a>\`;
           g.appendChild(c);
         });
       }catch(e){}
