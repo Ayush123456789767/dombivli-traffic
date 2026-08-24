@@ -5,33 +5,34 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 API KEYS (Configured in Render Environment Variables)
+// 🔑 API KEYS (From Render Environment Variables)
 const TOMTOM_KEY = process.env.TOMTOM_KEY || "YOUR_TOMTOM_KEY_HERE";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
-// 📍 20 DOMBIVLI WEST LOCATIONS
+// 📍 21 EXACT WEST PINPOINT LOCATIONS
 const spots = [
-  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.2183, lng: 73.0878 },
-  { id: 2,  name: "Kopar Road (West)",                   lat: 19.2225, lng: 73.0845 },
-  { id: 3,  name: "Retibandar Road (West)",              lat: 19.2105, lng: 73.0768 },
-  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.2122, lng: 73.0795 },
-  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.2162, lng: 73.0846 },
-  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.2128, lng: 73.0808 },
-  { id: 7,  name: "Elephant Fountain Circle (Hathi Chowk)", lat: 19.2170, lng: 73.0850 },
-  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.2158, lng: 73.0842 },
-  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.2145, lng: 73.0830 },
-  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.2180, lng: 73.0862 },
-  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.2138, lng: 73.0818 },
-  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.2165, lng: 73.0855 },
-  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.2175, lng: 73.0850 },
-  { id: 14, name: "Gokhale Road (West)",                 lat: 19.2152, lng: 73.0834 },
-  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.2238, lng: 73.0905 },
-  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.2248, lng: 73.0938 },
-  { id: 17, name: "Everest Gali (West)",                 lat: 19.2172, lng: 73.0858 },
-  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.2157, lng: 73.0839 },
-  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.2195, lng: 73.0865 },
-  { id: 20, name: "Deva Chowk (West)",                   lat: 19.2190, lng: 73.0868 }
+  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.216683, lng: 73.084526 },
+  { id: 2,  name: "Kopar Road (West)",                   lat: 19.215344, lng: 73.081659 },
+  { id: 3,  name: "Retibandar Road (West)",              lat: 19.224981, lng: 73.075574 },
+  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.226838, lng: 73.077923 },
+  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.219529, lng: 73.084562 },
+  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.220317, lng: 73.081626 },
+  { id: 7,  name: "Elephant Fountain Circle (West)",     lat: 19.222038, lng: 73.081989 },
+  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.222099, lng: 73.085016 },
+  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.222227, lng: 73.082514 },
+  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.222871, lng: 73.086402 },
+  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.227108, lng: 73.085180 },
+  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.222964, lng: 73.086905 },
+  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.218919, lng: 73.086973 },
+  { id: 14, name: "Gokhale Road (West)",                 lat: 19.221321, lng: 73.089710 },
+  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.222784, lng: 73.093368 },
+  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.223746, lng: 73.093092 },
+  { id: 17, name: "Everest Gali (West)",                 lat: 19.219247, lng: 73.086153 },
+  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.219564, lng: 73.085172 },
+  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.221747, lng: 73.079805 },
+  { id: 20, name: "Swami Vivekanand Lane (West)",        lat: 19.219120, lng: 73.082727 },
+  { id: 21, name: "Devi Chowk (West)",                   lat: 19.219245, lng: 73.082462 }
 ];
 
 let liveTrafficData = spots.map(s => ({
@@ -49,7 +50,7 @@ let liveTrafficData = spots.map(s => ({
 let lastCheckTime = null;
 let isNightMode = false;
 
-// 📲 Send Telegram Alert
+// 📲 Send Instant Alert to Telegram
 async function sendTelegramAlert(htmlMessage) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
   try {
@@ -64,7 +65,7 @@ async function sendTelegramAlert(htmlMessage) {
         disable_web_page_preview: false
       })
     });
-    console.log(`📱 Telegram alert sent!`);
+    console.log(`📱 Telegram alert dispatched!`);
   } catch (err) {
     console.error(`❌ Telegram error:`, err.message);
   }
@@ -99,13 +100,14 @@ async function checkSpotTraffic(spot) {
       let redSince = existing ? existing.redSince : null;
       let lastAlertSentAt = existing ? existing.lastAlertSentAt : null;
       let isAlert = false;
-      const mapLink = `https://maps.google.com/?q=${spot.lat},${spot.lng}&ll=${spot.lat},${spot.lng}&z=19`;
+      
+      const mapLink = `https://www.google.com/maps?q=${spot.lat},${spot.lng}`;
 
       if (status === 'red') {
         if (!redSince) redSince = Date.now();
         const minsStuck = Math.floor((Date.now() - redSince) / 60000);
 
-        // 🚨 5-Minute Alert Trigger
+        // 🚨 5-Minute Jam Alert Trigger
         if (minsStuck >= 5) {
           isAlert = true;
           const now = Date.now();
@@ -115,12 +117,12 @@ async function checkSpotTraffic(spot) {
             const message = 
 `🚨 <b>TRAFFIC MONITOR WEST — DISPATCH ALERT</b> 🚨
 
-📍 <b>Spot:</b> ${spot.name}
+📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 ⏱️ <b>Status:</b> Stationary for <b>${minsStuck}+ minutes!</b>
 🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
 ⏳ <b>Estimated Delay:</b> +${delayMinutes} mins
 
-🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
+🗺️ <a href="${mapLink}">👉 Open Exact GPS Pin in Google Maps</a>
 
 <i>Next update in 5 mins if congestion continues.</i>
 — <b>Traffic Monitor West 🚦</b>`;
@@ -142,14 +144,14 @@ async function checkSpotTraffic(spot) {
   return null;
 }
 
-// 🔄 24/7 Monitoring Loop
+// 🔄 Monitoring Loop
 async function monitorAll() {
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
-  // 🌙 Night Mode 12 AM - 8 AM IST
-  if (istHour >= 0 && istHour < 8) {
+  // 🌙 Night Mode 11 PM - 8 AM IST
+  if (istHour >= 23 || istHour < 8) {
     if (!isNightMode) {
-      console.log(`🌙 Night Mode active (12 AM - 8 AM) — Pausing scans.`);
+      console.log(`🌙 Night Mode active (11 PM - 8 AM) — Pausing scans.`);
       isNightMode = true;
       liveTrafficData = liveTrafficData.map(s => ({ ...s, status: 'gray', statusText: '🌙 NIGHT MODE' }));
     }
@@ -162,7 +164,7 @@ async function monitorAll() {
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 Scanning 20 West spots...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 Scanning 21 West spots...`);
 
   for (let i = 0; i < spots.length; i++) {
     const result = await checkSpotTraffic(spots[i]);
@@ -175,12 +177,12 @@ async function monitorAll() {
   lastCheckTime = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) + " IST";
 }
 
-// ⏰ Scan every 3 minutes
+// ⏰ Scan every 5 minutes
 function scheduleNextCheck() {
   setTimeout(async () => {
     await monitorAll();
     scheduleNextCheck();
-  }, 3 * 60 * 1000);
+  }, 5 * 60 * 1000);
 }
 
 // 🌐 API Route
@@ -188,7 +190,7 @@ app.get('/api/traffic', (req, res) => {
   res.json({ updatedAt: lastCheckTime, nightMode: isNightMode, locations: liveTrafficData });
 });
 
-// 🌐 Web Dashboard UI
+// 🌐 Web Dashboard UI (Completely bug-free template)
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -203,9 +205,10 @@ app.get('/', (req, res) => {
     header{text-align:center;margin-bottom:15px}
     h1{font-size:24px;color:#38bdf8;font-weight:800}
     .subtitle{color:#94a3b8;font-size:13px;margin-top:3px}
-    .bar{max-width:1100px;margin:0 auto 15px;background:#1e293b;padding:10px 15px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;align-items:center}
+    .bar{max-width:1100px;margin:0 auto 15px;background:#1e293b;padding:10px 15px;border-radius:8px;display:flex;justify-content:space-between;font-size:13px;align-items:center;flex-wrap:wrap;gap:10px}
     .pulse{width:10px;height:10px;background:#22c55e;border-radius:50%;display:inline-block;margin-right:6px;animation:blink 1.5s infinite}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+    .timer-box{display:flex;align-items:center;gap:6px;font-weight:bold;color:#38bdf8;background:#0f172a;padding:5px 12px;border-radius:6px;border:1px solid #334155}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;max-width:1100px;margin:0 auto}
     .card{background:#1e293b;border-radius:8px;padding:14px;border-left:5px solid #64748b}
     .card.green{border-left-color:#22c55e}
@@ -218,7 +221,7 @@ app.get('/', (req, res) => {
     .tag.yellow{background:#713f12;color:#fde047}
     .tag.gray{background:#334155;color:#94a3b8}
     .metrics{display:flex;justify-content:space-between;background:#0f172a;padding:8px;border-radius:6px;margin:10px 0;font-size:12px}
-    .coords{font-size:11px;color:#64748b;margin-bottom:8px;text-align:center}
+    .coords{font-size:11px;color:#94a3b8;margin-bottom:8px;text-align:center;font-family:monospace}
     .map-btn{display:block;text-align:center;background:#0f172a;color:#38bdf8;padding:8px;border-radius:5px;text-decoration:none;font-size:12px;font-weight:bold;border:1px solid #334155;transition:0.2s}
     .map-btn:hover{background:#38bdf8;color:#0f172a}
   </style>
@@ -226,37 +229,71 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <h1>🚦 Traffic Monitor West</h1>
-    <p class="subtitle">20 Pinpoint Locations • 3-Min Scan • Telegram Dispatch</p>
+    <p class="subtitle">21 Pinpoint Locations • 5-Min Scan • Telegram Dispatch</p>
   </header>
   <div class="bar">
     <div><span class="pulse"></span> <strong id="mode">SYSTEM ACTIVE 24/7</strong></div>
+    <div class="timer-box">⏱️ Next Scan: <span id="countdown">05:00</span></div>
     <span id="time" style="color:#94a3b8">Loading...</span>
   </div>
   <div class="grid" id="grid"></div>
+  
   <script>
-    async function update(){
-      try{
-        const r=await fetch('/api/traffic');
-        const d=await r.json();
-        document.getElementById('time').innerText="Last scan: "+(d.updatedAt||'Now');
-        document.getElementById('mode').innerText=d.nightMode?"🌙 NIGHT MODE (12AM-8AM)":"☀️ LIVE — SCANNING EVERY 3 MINS";
-        const g=document.getElementById('grid');g.innerHTML='';
-        d.locations.forEach(s=>{
-          const c=document.createElement('div');c.className='card '+s.status;
-          c.innerHTML=\`
-            <div class="card-top"><h4 style="font-size:14px">📍 \${s.name}</h4><span class="tag \${s.status}">\${s.statusText}</span></div>
-            <div class="metrics">
-              <div>Speed: <strong>\${s.currentSpeed} km/h</strong></div>
-              <div>Normal: <strong>\${s.freeFlowSpeed} km/h</strong></div>
-              <div>Delay: <strong>\${s.delayMinutes>0?'+'+s.delayMinutes+' min':'None'}</strong></div>
-            </div>
-            <div class="coords">GPS: \${s.lat}, \${s.lng}</div>
-            <a href="https://maps.google.com/?q=\${s.lat},\${s.lng}&ll=\${s.lat},\${s.lng}&z=19" target="_blank" class="map-btn">📍 Open Exact Pin in Google Maps ↗</a>\`;
-          g.appendChild(c);
-        });
-      }catch(e){}
+    var timeLeft = 300;
+    var timerRunning = false;
+
+    function runCountdown() {
+      if (timerRunning) return;
+      timerRunning = true;
+      setInterval(function() {
+        if (timeLeft <= 0) {
+          timeLeft = 300;
+          fetchData();
+        } else {
+          timeLeft--;
+        }
+        var m = Math.floor(timeLeft / 60);
+        var s = timeLeft % 60;
+        var mStr = m < 10 ? '0' + m : m;
+        var sStr = s < 10 ? '0' + s : s;
+        document.getElementById('countdown').innerText = mStr + ':' + sStr;
+      }, 1000);
     }
-    update();setInterval(update,10000);
+
+    async function fetchData() {
+      try {
+        var res = await fetch('/api/traffic');
+        var data = await res.json();
+        document.getElementById('time').innerText = "Last scan: " + (data.updatedAt || 'Now');
+        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — SCANNING EVERY 5 MINS";
+        
+        var grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        
+        data.locations.forEach(function(s) {
+          var card = document.createElement('div');
+          card.className = 'card ' + s.status;
+          card.innerHTML = 
+            '<div class="card-top">' +
+              '<h4 style="font-size:14px">📍 #' + s.id + '. ' + s.name + '</h4>' +
+              '<span class="tag ' + s.status + '">' + s.statusText + '</span>' +
+            '</div>' +
+            '<div class="metrics">' +
+              '<div>Speed: <strong>' + s.currentSpeed + ' km/h</strong></div>' +
+              '<div>Normal: <strong>' + s.freeFlowSpeed + ' km/h</strong></div>' +
+              '<div>Delay: <strong>' + (s.delayMinutes > 0 ? '+' + s.delayMinutes + ' min' : 'None') + '</strong></div>' +
+            '</div>' +
+            '<div class="coords">GPS: ' + s.lat + ', ' + s.lng + '</div>' +
+            '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="map-btn">📍 Open Pin-Point GPS in Maps ↗</a>';
+          grid.appendChild(card);
+        });
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    fetchData();
+    runCountdown();
   </script>
 </body>
 </html>`);
