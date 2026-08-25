@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 MULTI-KEY POOL (Set in Render Environment Variables)
+// 🔑 MULTI-KEY POOL (Uses your existing free TomTom keys)
 const TOMTOM_KEYS = [
   process.env.TOMTOM_KEY_1 || process.env.TOMTOM_KEY || "",
   process.env.TOMTOM_KEY_2 || ""
@@ -16,33 +16,35 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
 let keyIndex = 0;
 
-// 📍 21 EXACT DOMBIVLI WEST LOCATIONS
+// 📍 21 EXACT DOMBIVLI WEST ROAD VECTORS (Origin -> Destination across each chokepoint)
 const spots = [
-  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.216683, lng: 73.084526 },
-  { id: 2,  name: "Kopar Road (West)",                   lat: 19.215344, lng: 73.081659 },
-  { id: 3,  name: "Retibandar Road (West)",              lat: 19.224981, lng: 73.075574 },
-  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.226838, lng: 73.077923 },
-  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.219529, lng: 73.084562 },
-  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.220317, lng: 73.081626 },
-  { id: 7,  name: "Elephant Fountain Circle (West)",     lat: 19.222038, lng: 73.081989 },
-  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.222099, lng: 73.085016 },
-  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.222227, lng: 73.082514 },
-  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.222871, lng: 73.086402 },
-  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.227108, lng: 73.085180 },
-  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.222964, lng: 73.086905 },
-  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.218919, lng: 73.086973 },
-  { id: 14, name: "Gokhale Road (West)",                 lat: 19.221321, lng: 73.089710 },
-  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.222784, lng: 73.093368 },
-  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.223746, lng: 73.093092 },
-  { id: 17, name: "Everest Gali (West)",                 lat: 19.219247, lng: 73.086153 },
-  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.219564, lng: 73.085172 },
-  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.221747, lng: 73.079805 },
-  { id: 20, name: "Swami Vivekanand Lane (West)",        lat: 19.219120, lng: 73.082727 },
-  { id: 21, name: "Devi Chowk (West)",                   lat: 19.219245, lng: 73.082462 }
+  { id: 1,  name: "East-West Flyover (Centre)",          oLat: 19.216683, oLng: 73.084526, dLat: 19.217800, dLng: 73.086200 },
+  { id: 2,  name: "Kopar Road (West)",                   oLat: 19.215344, oLng: 73.081659, dLat: 19.216800, dLng: 73.082600 },
+  { id: 3,  name: "Retibandar Road (West)",              oLat: 19.224981, oLng: 73.075574, dLat: 19.223800, dLng: 73.076800 },
+  { id: 4,  name: "Retibandar Cross Road (West)",        oLat: 19.226838, oLng: 73.077923, dLat: 19.225500, dLng: 73.078800 },
+  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  oLat: 19.219529, oLng: 73.084562, dLat: 19.218000, dLng: 73.084600 },
+  { id: 6,  name: "Mumbra Devi Road (West)",             oLat: 19.220317, oLng: 73.081626, dLat: 19.219000, dLng: 73.081600 },
+  { id: 7,  name: "Elephant Fountain Circle (West)",     oLat: 19.222038, oLng: 73.081989, dLat: 19.221000, dLng: 73.082800 },
+  { id: 8,  name: "Ghanshyam Gupte Road (West)",         oLat: 19.222099, oLng: 73.085016, dLat: 19.220800, dLng: 73.085000 },
+  { id: 9,  name: "Nana Shankar Seth Road (West)",       oLat: 19.222227, oLng: 73.082514, dLat: 19.221000, dLng: 73.082500 },
+  { id: 10, name: "Ganesh Chowk (West)",                 oLat: 19.222871, oLng: 73.086402, dLat: 19.221800, dLng: 73.086400 },
+  { id: 11, name: "Mahatma Phule Road (West)",           oLat: 19.227108, oLng: 73.085180, dLat: 19.225800, dLng: 73.085200 },
+  { id: 12, name: "Subhash Chandra Bose Road (West)",    oLat: 19.222964, oLng: 73.086905, dLat: 19.221800, dLng: 73.086900 },
+  { id: 13, name: "Mahatma Gandhi Road (West)",          oLat: 19.218919, oLng: 73.086973, dLat: 19.217500, dLng: 73.086900 },
+  { id: 14, name: "Gokhale Road (West)",                 oLat: 19.221321, oLng: 73.089710, dLat: 19.220000, dLng: 73.089700 },
+  { id: 15, name: "Thakurli Flyover (West)",             oLat: 19.222784, oLng: 73.093368, dLat: 19.224000, dLng: 73.092800 },
+  { id: 16, name: "East to West Thakurli Bridge (W)",    oLat: 19.223746, oLng: 73.093092, dLat: 19.224800, dLng: 73.092000 },
+  { id: 17, name: "Everest Gali (West)",                 oLat: 19.219247, oLng: 73.086153, dLat: 19.218200, dLng: 73.086100 },
+  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   oLat: 19.219564, oLng: 73.085172, dLat: 19.218500, dLng: 73.085100 },
+  { id: 19, name: "Thakurwadi Road (West)",              oLat: 19.221747, oLng: 73.079805, dLat: 19.220500, dLng: 73.079800 },
+  { id: 20, name: "Swami Vivekanand Lane (West)",        oLat: 19.219120, oLng: 73.082727, dLat: 19.218000, dLng: 73.082700 },
+  { id: 21, name: "Devi Chowk (West)",                   oLat: 19.219245, oLng: 73.082462, dLat: 19.218200, dLng: 73.082400 }
 ];
 
 let liveTrafficData = spots.map(s => ({
   ...s,
+  lat: s.oLat,
+  lng: s.oLng,
   currentSpeed: 25,
   freeFlowSpeed: 30,
   speedPercent: 83,
@@ -80,49 +82,53 @@ async function sendTelegramAlert(htmlMessage) {
   }
 }
 
-// 🚦 Direct Live Speed Tracker Flow Check
+// 🚦 Live Routing Delay Calculation across the junction
 async function checkSpotTraffic(spot) {
   if (TOMTOM_KEYS.length === 0) return null;
 
   const currentKey = TOMTOM_KEYS[keyIndex % TOMTOM_KEYS.length];
   keyIndex++;
 
-  const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/18/json?point=${spot.lat},${spot.lng}&unit=KMPH&key=${currentKey}`;
+  // 🎯 ROUTING API WITH LIVE TRAFFIC DELAY
+  const url = `https://api.tomtom.com/routing/1/calculateRoute/${spot.oLat},${spot.oLng}:${spot.dLat},${spot.dLng}/json?traffic=true&departAt=now&routeType=fastest&key=${currentKey}`;
 
   try {
-    const res = await fetch(url, { timeout: 4000 });
+    const res = await fetch(url, { timeout: 4500 });
     if (!res.ok) return null;
 
     const data = await res.json();
 
-    if (data && data.flowSegmentData) {
-      const flow = data.flowSegmentData;
-      const currentSpeed = Math.round(flow.currentSpeed) || 20;
-      const freeFlow = Math.max(25, Math.round(flow.freeFlowSpeed) || 30);
+    if (data && data.routes && data.routes.length > 0) {
+      const summary = data.routes[0].summary;
       
-      const currentTravelTime = flow.currentTravelTime || 30;
-      const freeFlowTravelTime = flow.freeFlowTravelTime || 25;
-      const delaySeconds = Math.max(0, currentTravelTime - freeFlowTravelTime);
+      const distanceMeters = summary.lengthInMeters || 300;
+      const liveTravelTime = summary.travelTimeInSeconds || 30;
+      const normalTravelTime = summary.noTrafficTravelTimeInSeconds || summary.historicTravelTimeInSeconds || Math.round((distanceMeters / 1000) / (30 / 3600)) || 25;
+      const delaySeconds = Math.max(0, summary.trafficDelayInSeconds || (liveTravelTime - normalTravelTime));
       const delayMinutes = Math.round(delaySeconds / 60);
 
-      // Percentage of free flow speed (e.g., 10 / 30 = 33%)
-      const speedPercent = Math.min(100, Math.max(5, Math.round((currentSpeed / freeFlow) * 100)));
+      // Calculate real live speed across the bottle-neck
+      const realSpeedKmph = Math.max(2, Math.min(50, Math.round((distanceMeters / 1000) / (liveTravelTime / 3600)))) || 25;
+      const freeFlowSpeed = Math.round((distanceMeters / 1000) / (normalTravelTime / 3600)) || 30;
+      
+      const timeRatio = liveTravelTime / (normalTravelTime || 1);
+      const speedPercent = Math.min(100, Math.max(5, Math.round((realSpeedKmph / freeFlowSpeed) * 100)));
 
-      // 🎯 DIRECT SPEED BENCHMARKS:
+      // 🎯 STRICT GROUND-TRUTH CALIBRATION (Matches Google Maps):
       let status = 'green';
       let statusText = '🟢 CLEAR';
 
-      // 🔴 RED (0 to 10 km/h) = STANDSTILL / GRIDLOCK
-      if (currentSpeed <= 10) {
+      // 🔴 RED (JAMMED): Taking 35%+ longer to cross OR delay >= 20s OR speed <= 12 km/h
+      if (timeRatio >= 1.35 || delaySeconds >= 20 || realSpeedKmph <= 12) {
         status = 'red';
         statusText = '🚨 STANDSTILL';
       } 
-      // 🟡 YELLOW (11 to 22 km/h) = SLOW / MOVING
-      else if (currentSpeed <= 22) {
+      // 🟡 YELLOW (SLOW / CRAWL): Taking 15%+ longer OR delay >= 8s OR speed <= 22 km/h
+      else if (timeRatio >= 1.15 || delaySeconds >= 8 || realSpeedKmph <= 22) {
         status = 'yellow';
         statusText = '⚠️ SLOW';
       } 
-      // 🟢 GREEN (23+ km/h) = SMOOTH CLEAR FLOW
+      // 🟢 GREEN (SMOOTH):
       else {
         status = 'green';
         statusText = '🟢 CLEAR';
@@ -134,7 +140,7 @@ async function checkSpotTraffic(spot) {
       let lastAlertSentAt = existing ? existing.lastAlertSentAt : null;
       let isAlert = false;
 
-      const mapLink = `https://www.google.com/maps?q=${spot.lat},${spot.lng}`;
+      const mapLink = `https://www.google.com/maps?q=${spot.oLat},${spot.oLng}`;
 
       if (status === 'red') {
         const now = Date.now();
@@ -154,8 +160,8 @@ async function checkSpotTraffic(spot) {
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 ⏱️ <b>Status:</b> STANDSTILL for <b>2+ minutes!</b>
-🚗 <b>Live Speed:</b> <b>${currentSpeed} km/h</b> (Normal: ${freeFlow} km/h)
-⏳ <b>Delay:</b> +${Math.max(1, delayMinutes)} min(s)
+🚗 <b>Live Flow:</b> <b>${realSpeedKmph} km/h</b> (Normal: ${freeFlowSpeed} km/h)
+⏳ <b>Delay:</b> +${Math.max(1, delayMinutes)} min(s) (+${delaySeconds}s)
 
 🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
 
@@ -177,7 +183,7 @@ async function checkSpotTraffic(spot) {
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 ⏱️ <b>Standstill Duration:</b> Ongoing for <b>${minsStuck} minutes!</b>
-🚗 <b>Live Speed:</b> <b>${currentSpeed} km/h</b>
+🚗 <b>Live Flow:</b> <b>${realSpeedKmph} km/h</b>
 ⏳ <b>Delay:</b> +${Math.max(1, delayMinutes)} min(s)
 
 🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
@@ -189,14 +195,14 @@ async function checkSpotTraffic(spot) {
           }
         }
       } else {
-        // ✅ 3. SPEED RESTORED (Yellow or Green)
+        // ✅ 3. RESTORED TO YELLOW/GREEN
         if (firstAlertSent) {
           const clearedMsg = 
 `✅ <b>TRAFFIC MOVING — TRAFFIC MONITOR WEST</b> ✅
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 ${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is moving again (Yellow).' : '🟢 <b>Status:</b> Road is completely clear (Green)!'}
-🚗 <b>Speed Restored to:</b> <b>${currentSpeed} km/h</b>
+🚗 <b>Speed Restored:</b> <b>${realSpeedKmph} km/h</b>
 
 — <b>Traffic Monitor West 🚦</b>`;
 
@@ -210,8 +216,10 @@ ${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is moving again (Yellow).' 
 
       return {
         ...spot,
-        currentSpeed,
-        freeFlowSpeed: freeFlow,
+        lat: spot.oLat,
+        lng: spot.oLng,
+        currentSpeed: realSpeedKmph,
+        freeFlowSpeed,
         speedPercent,
         delayMinutes,
         delaySeconds,
@@ -229,7 +237,7 @@ ${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is moving again (Yellow).' 
   return null;
 }
 
-// 🔄 1-Minute Parallel Scan Loop
+// 🔄 1-Minute Live Parallel Scan
 async function monitorAll() {
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
@@ -245,11 +253,11 @@ async function monitorAll() {
   }
 
   if (isNightMode) {
-    console.log(`☀️ Resuming 1-minute live tracking...`);
+    console.log(`☀️ Resuming 1-minute live routing scans...`);
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Live Speed Scan for all 21 West spots...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Real-Time Route Delay Scan across 21 West spots...`);
 
   const results = await Promise.all(spots.map(spot => checkSpotTraffic(spot)));
 
@@ -276,12 +284,13 @@ app.get('/api/traffic', (req, res) => {
   res.json({
     updatedAt: lastCheckTime,
     nightMode: isNightMode,
+    engine: "TomTom Live Route Delay Engine",
     activeKeysCount: TOMTOM_KEYS.length,
     locations: liveTrafficData
   });
 });
 
-// 🌐 Web Dashboard UI (Live Speed Gauge & Stopwatch)
+// 🌐 Web Dashboard UI
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -312,7 +321,6 @@ app.get('/', (req, res) => {
     .tag.yellow{background:#713f12;color:#fde047}
     .tag.gray{background:#334155;color:#94a3b8}
     
-    /* Live Speed Gauge Bar */
     .speed-gauge-container{background:#0f172a;border-radius:6px;height:10px;width:100%;overflow:hidden;margin:8px 0 10px;border:1px solid #334155}
     .speed-gauge-bar{height:100%;transition:width 0.5s ease, background-color 0.5s ease}
     .gauge-green{background:#22c55e;box-shadow:0 0 8px #22c55e}
@@ -336,7 +344,7 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <h1>🚦 Traffic Monitor West</h1>
-    <p class="subtitle">21 Pinpoint Locations • Live Speedometer & 1-Min Auto Scan</p>
+    <p class="subtitle">21 Pinpoint Locations • Live Route Delay Engine • 1-Min Auto Scan</p>
   </header>
   <div class="bar">
     <div><span class="pulse"></span> <strong id="mode">SYSTEM ACTIVE 24/7</strong></div>
@@ -390,7 +398,7 @@ app.get('/', (req, res) => {
         var data = await res.json();
         cachedData = data.locations || [];
         document.getElementById('time').innerText = "Last scan: " + (data.updatedAt || 'Now');
-        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — LIVE SPEED TRACKER ACTIVE";
+        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — ROUTE DELAY ENGINE ACTIVE";
         
         var grid = document.getElementById('grid');
         grid.innerHTML = '';
@@ -409,6 +417,8 @@ app.get('/', (req, res) => {
           var gaugeClass = s.status === 'red' ? 'gauge-red' : (s.status === 'yellow' ? 'gauge-yellow' : 'gauge-green');
           var speedColorClass = s.status === 'red' ? 'speed-red' : (s.status === 'yellow' ? 'speed-yellow' : 'speed-green');
 
+          var delayText = s.delaySeconds >= 20 ? ('+' + Math.round(s.delaySeconds / 60) + ' min (' + s.delaySeconds + 's delay)') : (s.delaySeconds > 0 ? ('+' + s.delaySeconds + 's delay') : 'None');
+
           card.innerHTML = 
             '<div class="card-top">' +
               '<h4 style="font-size:14px">📍 #' + s.id + '. ' + s.name + '</h4>' +
@@ -419,9 +429,9 @@ app.get('/', (req, res) => {
               '<div class="speed-gauge-bar ' + gaugeClass + '" style="width:' + s.speedPercent + '%"></div>' +
             '</div>' +
             '<div class="metrics">' +
-              '<div>Live Speed: <strong class="speed-highlight ' + speedColorClass + '">' + s.currentSpeed + ' km/h</strong></div>' +
-              '<div>Free Flow: <strong>' + s.freeFlowSpeed + ' km/h</strong></div>' +
-              '<div>Delay: <strong>' + (s.delaySeconds > 0 ? '+' + s.delaySeconds + 's' : 'None') + '</strong></div>' +
+              '<div>Live Flow: <strong class="speed-highlight ' + speedColorClass + '">' + s.currentSpeed + ' km/h</strong></div>' +
+              '<div>Normal: <strong>' + s.freeFlowSpeed + ' km/h</strong></div>' +
+              '<div>Delay: <strong>' + delayText + '</strong></div>' +
             '</div>' +
             '<div class="coords">GPS: ' + s.lat + ', ' + s.lng + '</div>' +
             '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="map-btn">📍 Open Pin-Point GPS in Maps ↗</a>';
@@ -440,6 +450,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log('🚀 Traffic Monitor West (Live Speed Gauge Engine) running on port ' + PORT);
+  console.log('🚀 Traffic Monitor West (Live Route Delay Engine) running on port ' + PORT);
   monitorAll().then(() => scheduleNextCheck());
 });
