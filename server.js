@@ -5,12 +5,19 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 API KEYS (Set in Render Environment Variables)
-const OLA_API_KEY = process.env.OLA_API_KEY || "YOUR_OLA_API_KEY_HERE";
+// 🔑 OLA OAUTH CREDENTIALS & TELEGRAM
+const OLA_CLIENT_ID = process.env.OLA_CLIENT_ID || "";
+const OLA_CLIENT_SECRET = process.env.OLA_CLIENT_SECRET || "";
+const OLA_API_KEY = process.env.OLA_API_KEY || ""; // Fallback if direct key provided
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
-// 📍 21 EXACT DOMBIVLI WEST LOCATIONS (With start & end road segment pairs)
+// In-memory OAuth Token Cache
+let cachedAccessToken = null;
+let tokenExpiresAt = 0;
+
+// 📍 21 EXACT DOMBIVLI WEST LOCATIONS
 const spots = [
   { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.216683, lng: 73.084526, dLat: 19.217300, dLng: 73.085500 },
   { id: 2,  name: "Kopar Road (West)",                   lat: 19.215344, lng: 73.081659, dLat: 19.216200, dLng: 73.082200 },
@@ -37,7 +44,7 @@ const spots = [
 
 let liveTrafficData = spots.map(s => ({
   ...s,
-  currentSpeed: 25,
+  currentSpeed: 24,
   freeFlowSpeed: 30,
   delayMinutes: 0,
   status: 'green',
@@ -50,6 +57,40 @@ let liveTrafficData = spots.map(s => ({
 
 let lastCheckTime = null;
 let isNightMode = false;
+
+// 🔐 Automated OAuth Token Generator
+async function getOlaAccessToken() {
+  if (cachedAccessToken && Date.now() < tokenExpiresAt) {
+    return cachedAccessToken;
+  }
+
+  if (!OLA_CLIENT_ID || !OLA_CLIENT_SECRET) {
+    return OLA_API_KEY; // Return direct key if provided
+  }
+
+  try {
+    const res = await fetch('https://account.olakrutrim.com/v1/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: OLA_CLIENT_ID,
+        client_secret: OLA_CLIENT_SECRET,
+        grant_type: 'client_credentials'
+      })
+    });
+
+    const data = await res.json();
+    if (data && data.access_token) {
+      cachedAccessToken = data.access_token;
+      tokenExpiresAt = Date.now() + ((data.expires_in || 3600) - 300) * 1000;
+      console.log('✅ Generated fresh Ola OAuth Access Token!');
+      return cachedAccessToken;
+    }
+  } catch (err) {
+    console.error('❌ Failed to fetch Ola OAuth token:', err.message);
+  }
+  return OLA_API_KEY;
+}
 
 // 📲 Send Instant Alert to Telegram
 async function sendTelegramAlert(htmlMessage) {
@@ -72,23 +113,27 @@ async function sendTelegramAlert(htmlMessage) {
   }
 }
 
-// 🚦 Check Spot Traffic via Ola Krutrim Engine (POST Method)
+// 🚦 Check Spot Traffic via Ola Krutrim Engine
 async function checkSpotTraffic(spot) {
-  const url = `https://api.olamaps.io/routing/v1/directions?origin=${spot.lat},${spot.lng}&destination=${spot.dLat},${spot.dLng}&mode=driving&api_key=${OLA_API_KEY}`;
+  const token = await getOlaAccessToken();
+  const url = `https://api.olamaps.io/routing/v1/directions?origin=${spot.lat},${spot.lng}&destination=${spot.dLat},${spot.dLng}&mode=driving`;
 
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-Id': 'dombivli-west-' + Date.now()
-      }
-    });
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Request-Id': 'dombivli-west-' + Date.now()
+    };
 
-    if (!res.ok) {
-      console.error(`⚠️ Ola API Error [${res.status}] for ${spot.name}`);
-      return null;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['X-Api-Key'] = token;
     }
+
+    const res = await fetch(url + `&api_key=${token}`, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({})
+    });
 
     const data = await res.json();
 
@@ -240,7 +285,7 @@ async function monitorAll() {
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 1-Min Scan running via Ola Krutrim Maps (POST)...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 1-Min Scan running via Ola Krutrim Maps (OAuth)...`);
 
   for (let i = 0; i < spots.length; i++) {
     const result = await checkSpotTraffic(spots[i]);
@@ -266,7 +311,7 @@ app.get('/api/traffic', (req, res) => {
   res.json({
     updatedAt: lastCheckTime,
     nightMode: isNightMode,
-    engine: "Ola Krutrim Maps India",
+    engine: "Ola Krutrim Maps India (OAuth)",
     locations: liveTrafficData
   });
 });
@@ -412,6 +457,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log('🚀 Traffic Monitor West (Ola Krutrim Engine) running on port ' + PORT);
+  console.log('🚀 Traffic Monitor West (Ola Krutrim OAuth Engine) running on port ' + PORT);
   monitorAll().then(() => scheduleNextCheck());
 });
