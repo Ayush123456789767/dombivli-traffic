@@ -45,6 +45,7 @@ let liveTrafficData = spots.map(s => ({
   ...s,
   currentSpeed: 25,
   freeFlowSpeed: 30,
+  speedPercent: 83,
   delayMinutes: 0,
   delaySeconds: 0,
   status: 'green',
@@ -79,7 +80,7 @@ async function sendTelegramAlert(htmlMessage) {
   }
 }
 
-// 🚦 Balanced Street-Level Traffic Analysis (Dynamic Red / Yellow / Green)
+// 🚦 Direct Live Speed Tracker Flow Check
 async function checkSpotTraffic(spot) {
   if (TOMTOM_KEYS.length === 0) return null;
 
@@ -104,28 +105,24 @@ async function checkSpotTraffic(spot) {
       const delaySeconds = Math.max(0, currentTravelTime - freeFlowTravelTime);
       const delayMinutes = Math.round(delaySeconds / 60);
 
-      const delayRatio = currentTravelTime / (freeFlowTravelTime || 1);
+      // Percentage of free flow speed (e.g., 10 / 30 = 33%)
+      const speedPercent = Math.min(100, Math.max(5, Math.round((currentSpeed / freeFlow) * 100)));
 
-      // 🎯 DYNAMIC 3-TIER CALIBRATION:
+      // 🎯 DIRECT SPEED BENCHMARKS:
       let status = 'green';
       let statusText = '🟢 CLEAR';
 
-      // 🔴 1. RED (DEAD STOP / HEAVY GRIDLOCK):
-      // - Crawling at <= 10 km/h
-      // - OR Significant delay (>= 45 seconds AND 60%+ longer travel time)
-      if (currentSpeed <= 10 || (delaySeconds >= 45 && delayRatio >= 1.60)) {
+      // 🔴 RED (0 to 10 km/h) = STANDSTILL / GRIDLOCK
+      if (currentSpeed <= 10) {
         status = 'red';
-        statusText = '🚨 JAMMED';
+        statusText = '🚨 STANDSTILL';
       } 
-      // 🟡 2. YELLOW (SLIGHT MOVEMENT / MODERATE FLOW / EASING):
-      // - Cars moving at 11 to 22 km/h
-      // - OR Moderate delay between 15s and 44s
-      else if (currentSpeed <= 22 || delaySeconds >= 15 || delayRatio >= 1.15) {
+      // 🟡 YELLOW (11 to 22 km/h) = SLOW / MOVING
+      else if (currentSpeed <= 22) {
         status = 'yellow';
         statusText = '⚠️ SLOW';
-      }
-      // 🟢 3. GREEN (SMOOTH FLOW):
-      // - Speed >= 23 km/h and minimal delay (< 15s)
+      } 
+      // 🟢 GREEN (23+ km/h) = SMOOTH CLEAR FLOW
       else {
         status = 'green';
         statusText = '🟢 CLEAR';
@@ -156,13 +153,13 @@ async function checkSpotTraffic(spot) {
 `🚨 <b>TRAFFIC MONITOR WEST — DISPATCH ALERT</b> 🚨
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
-⏱️ <b>Status:</b> STATIONARY for <b>2+ minutes!</b>
-🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
-⏳ <b>Delay:</b> +${Math.max(1, delayMinutes)} min(s) (+${delaySeconds}s)
+⏱️ <b>Status:</b> STANDSTILL for <b>2+ minutes!</b>
+🚗 <b>Live Speed:</b> <b>${currentSpeed} km/h</b> (Normal: ${freeFlow} km/h)
+⏳ <b>Delay:</b> +${Math.max(1, delayMinutes)} min(s)
 
 🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
 
-<i>Next status update in 5 minutes if congestion continues.</i>
+<i>Next status update in 5 minutes if standstill continues.</i>
 — <b>Traffic Monitor West 🚦</b>`;
 
           await sendTelegramAlert(initialMsg);
@@ -179,8 +176,8 @@ async function checkSpotTraffic(spot) {
 `🔄 <b>TRAFFIC MONITOR WEST — 5-MIN UPDATE</b> 🔄
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
-⏱️ <b>Jam Duration:</b> Ongoing for <b>${minsStuck} minutes!</b>
-🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
+⏱️ <b>Standstill Duration:</b> Ongoing for <b>${minsStuck} minutes!</b>
+🚗 <b>Live Speed:</b> <b>${currentSpeed} km/h</b>
 ⏳ <b>Delay:</b> +${Math.max(1, delayMinutes)} min(s)
 
 🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
@@ -192,21 +189,20 @@ async function checkSpotTraffic(spot) {
           }
         }
       } else {
-        // ✅ 3. DOWNDRADE TO YELLOW / GREEN (Traffic moving or cleared)
+        // ✅ 3. SPEED RESTORED (Yellow or Green)
         if (firstAlertSent) {
           const clearedMsg = 
-`✅ <b>TRAFFIC EASING / CLEARED — TRAFFIC MONITOR WEST</b> ✅
+`✅ <b>TRAFFIC MOVING — TRAFFIC MONITOR WEST</b> ✅
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
-${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is now moving slowly (Yellow).' : '🟢 <b>Status:</b> Road is completely clear (Green)!'}
-🚗 <b>Current Speed:</b> ${currentSpeed} km/h
+${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is moving again (Yellow).' : '🟢 <b>Status:</b> Road is completely clear (Green)!'}
+🚗 <b>Speed Restored to:</b> <b>${currentSpeed} km/h</b>
 
 — <b>Traffic Monitor West 🚦</b>`;
 
           await sendTelegramAlert(clearedMsg);
         }
 
-        // Reset red stopwatch timer
         redSince = null;
         firstAlertSent = false;
         lastAlertSentAt = null;
@@ -216,6 +212,7 @@ ${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is now moving slowly (Yello
         ...spot,
         currentSpeed,
         freeFlowSpeed: freeFlow,
+        speedPercent,
         delayMinutes,
         delaySeconds,
         status,
@@ -232,7 +229,7 @@ ${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is now moving slowly (Yello
   return null;
 }
 
-// 🔄 1-Minute Live Parallel Scan Loop
+// 🔄 1-Minute Parallel Scan Loop
 async function monitorAll() {
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
@@ -248,11 +245,11 @@ async function monitorAll() {
   }
 
   if (isNightMode) {
-    console.log(`☀️ Resuming 1-minute daytime tracking...`);
+    console.log(`☀️ Resuming 1-minute live tracking...`);
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Parallel 1-Min Scan running for 21 West spots...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Live Speed Scan for all 21 West spots...`);
 
   const results = await Promise.all(spots.map(spot => checkSpotTraffic(spot)));
 
@@ -284,7 +281,7 @@ app.get('/api/traffic', (req, res) => {
   });
 });
 
-// 🌐 Web Dashboard UI
+// 🌐 Web Dashboard UI (Live Speed Gauge & Stopwatch)
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -315,10 +312,22 @@ app.get('/', (req, res) => {
     .tag.yellow{background:#713f12;color:#fde047}
     .tag.gray{background:#334155;color:#94a3b8}
     
+    /* Live Speed Gauge Bar */
+    .speed-gauge-container{background:#0f172a;border-radius:6px;height:10px;width:100%;overflow:hidden;margin:8px 0 10px;border:1px solid #334155}
+    .speed-gauge-bar{height:100%;transition:width 0.5s ease, background-color 0.5s ease}
+    .gauge-green{background:#22c55e;box-shadow:0 0 8px #22c55e}
+    .gauge-yellow{background:#eab308;box-shadow:0 0 8px #eab308}
+    .gauge-red{background:#ef4444;box-shadow:0 0 8px #ef4444}
+
     .jam-timer{display:none;background:#7f1d1d;color:#fecaca;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-bottom:8px;text-align:center;animation:blink 1.5s infinite}
     .card.red .jam-timer{display:block}
 
     .metrics{display:flex;justify-content:space-between;background:#0f172a;padding:8px;border-radius:6px;margin:10px 0;font-size:12px}
+    .speed-highlight{font-size:16px;font-weight:800}
+    .speed-red{color:#f87171}
+    .speed-yellow{color:#facc15}
+    .speed-green{color:#4ade80}
+
     .coords{font-size:11px;color:#94a3b8;margin-bottom:8px;text-align:center;font-family:monospace}
     .map-btn{display:block;text-align:center;background:#0f172a;color:#38bdf8;padding:8px;border-radius:5px;text-decoration:none;font-size:12px;font-weight:bold;border:1px solid #334155;transition:0.2s}
     .map-btn:hover{background:#38bdf8;color:#0f172a}
@@ -327,7 +336,7 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <h1>🚦 Traffic Monitor West</h1>
-    <p class="subtitle">21 Pinpoint Locations • 1-Min Live Scan • Telegram 2-Min Alert & 5-Min Updates</p>
+    <p class="subtitle">21 Pinpoint Locations • Live Speedometer & 1-Min Auto Scan</p>
   </header>
   <div class="bar">
     <div><span class="pulse"></span> <strong id="mode">SYSTEM ACTIVE 24/7</strong></div>
@@ -352,7 +361,7 @@ app.get('/', (req, res) => {
           var mStr = m < 10 ? '0' + m : m;
           var sStr = sc < 10 ? '0' + sc : sc;
           var el = document.getElementById('jam-stopwatch-' + s.id);
-          if (el) el.innerText = '🚨 JAMMED FOR: ' + mStr + ':' + sStr;
+          if (el) el.innerText = '🚨 STANDSTILL FOR: ' + mStr + ':' + sStr;
         }
       });
     }, 1000);
@@ -381,7 +390,7 @@ app.get('/', (req, res) => {
         var data = await res.json();
         cachedData = data.locations || [];
         document.getElementById('time').innerText = "Last scan: " + (data.updatedAt || 'Now');
-        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — SCANNING EVERY 1 MIN";
+        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — LIVE SPEED TRACKER ACTIVE";
         
         var grid = document.getElementById('grid');
         grid.innerHTML = '';
@@ -395,9 +404,10 @@ app.get('/', (req, res) => {
           var sc = diffSec % 60;
           var mStr = m < 10 ? '0' + m : m;
           var sStr = sc < 10 ? '0' + sc : sc;
-          var initialJamText = s.status === 'red' ? ('🚨 JAMMED FOR: ' + mStr + ':' + sStr) : '';
+          var initialJamText = s.status === 'red' ? ('🚨 STANDSTILL FOR: ' + mStr + ':' + sStr) : '';
 
-          var delayText = (s.delaySeconds >= 45) ? ('+' + Math.round(s.delaySeconds / 60) + ' min (' + s.delaySeconds + 's delay)') : (s.delaySeconds > 0 ? ('+' + s.delaySeconds + 's delay') : 'None');
+          var gaugeClass = s.status === 'red' ? 'gauge-red' : (s.status === 'yellow' ? 'gauge-yellow' : 'gauge-green');
+          var speedColorClass = s.status === 'red' ? 'speed-red' : (s.status === 'yellow' ? 'speed-yellow' : 'speed-green');
 
           card.innerHTML = 
             '<div class="card-top">' +
@@ -405,10 +415,13 @@ app.get('/', (req, res) => {
               '<span class="tag ' + s.status + '">' + s.statusText + '</span>' +
             '</div>' +
             '<div class="jam-timer" id="jam-stopwatch-' + s.id + '">' + initialJamText + '</div>' +
+            '<div class="speed-gauge-container">' +
+              '<div class="speed-gauge-bar ' + gaugeClass + '" style="width:' + s.speedPercent + '%"></div>' +
+            '</div>' +
             '<div class="metrics">' +
-              '<div>Speed: <strong>' + s.currentSpeed + ' km/h</strong></div>' +
-              '<div>Normal: <strong>' + s.freeFlowSpeed + ' km/h</strong></div>' +
-              '<div>Delay: <strong>' + delayText + '</strong></div>' +
+              '<div>Live Speed: <strong class="speed-highlight ' + speedColorClass + '">' + s.currentSpeed + ' km/h</strong></div>' +
+              '<div>Free Flow: <strong>' + s.freeFlowSpeed + ' km/h</strong></div>' +
+              '<div>Delay: <strong>' + (s.delaySeconds > 0 ? '+' + s.delaySeconds + 's' : 'None') + '</strong></div>' +
             '</div>' +
             '<div class="coords">GPS: ' + s.lat + ', ' + s.lng + '</div>' +
             '<a href="https://www.google.com/maps?q=' + s.lat + ',' + s.lng + '" target="_blank" class="map-btn">📍 Open Pin-Point GPS in Maps ↗</a>';
@@ -427,6 +440,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log('🚀 Traffic Monitor West (Dynamic Sensitivity Engine) running on port ' + PORT);
+  console.log('🚀 Traffic Monitor West (Live Speed Gauge Engine) running on port ' + PORT);
   monitorAll().then(() => scheduleNextCheck());
 });
