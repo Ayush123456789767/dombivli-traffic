@@ -46,6 +46,7 @@ let liveTrafficData = spots.map(s => ({
   currentSpeed: 25,
   freeFlowSpeed: 30,
   delayMinutes: 0,
+  delaySeconds: 0,
   status: 'green',
   statusText: '🟢 CLEAR',
   redSince: null,
@@ -78,7 +79,7 @@ async function sendTelegramAlert(htmlMessage) {
   }
 }
 
-// 🚦 High-Sensitivity Flow Check (Instant Red on any queue delay)
+// 🚦 Balanced Street-Level Traffic Analysis (Dynamic Red / Yellow / Green)
 async function checkSpotTraffic(spot) {
   if (TOMTOM_KEYS.length === 0) return null;
 
@@ -105,24 +106,29 @@ async function checkSpotTraffic(spot) {
 
       const delayRatio = currentTravelTime / (freeFlowTravelTime || 1);
 
-      // 🎯 HIGH-SENSITIVITY REAL-WORLD CALIBRATION:
+      // 🎯 DYNAMIC 3-TIER CALIBRATION:
       let status = 'green';
       let statusText = '🟢 CLEAR';
 
-      // 🔴 RED (JAMMED):
-      // 1. Any delay of 30+ seconds on this spot
-      // 2. OR Travel time is 25%+ longer than normal (delayRatio >= 1.25)
-      // 3. OR Speed dropped below 18 km/h
-      // 4. OR Speed is < 70% of normal
-      if (delaySeconds >= 30 || delayRatio >= 1.25 || currentSpeed <= 18 || currentSpeed < (freeFlow * 0.70)) {
+      // 🔴 1. RED (DEAD STOP / HEAVY GRIDLOCK):
+      // - Crawling at <= 10 km/h
+      // - OR Significant delay (>= 45 seconds AND 60%+ longer travel time)
+      if (currentSpeed <= 10 || (delaySeconds >= 45 && delayRatio >= 1.60)) {
         status = 'red';
         statusText = '🚨 JAMMED';
       } 
-      // 🟡 YELLOW (SLOW):
-      // Minor slowdown (delay >= 10s or speed < 24 km/h)
-      else if (delaySeconds >= 10 || delayRatio >= 1.10 || currentSpeed <= 24) {
+      // 🟡 2. YELLOW (SLIGHT MOVEMENT / MODERATE FLOW / EASING):
+      // - Cars moving at 11 to 22 km/h
+      // - OR Moderate delay between 15s and 44s
+      else if (currentSpeed <= 22 || delaySeconds >= 15 || delayRatio >= 1.15) {
         status = 'yellow';
         statusText = '⚠️ SLOW';
+      }
+      // 🟢 3. GREEN (SMOOTH FLOW):
+      // - Speed >= 23 km/h and minimal delay (< 15s)
+      else {
+        status = 'green';
+        statusText = '🟢 CLEAR';
       }
 
       const existing = liveTrafficData.find(s => s.id === spot.id);
@@ -186,20 +192,21 @@ async function checkSpotTraffic(spot) {
           }
         }
       } else {
-        // ✅ 3. TRAFFIC CLEARED
+        // ✅ 3. DOWNDRADE TO YELLOW / GREEN (Traffic moving or cleared)
         if (firstAlertSent) {
           const clearedMsg = 
-`✅ <b>TRAFFIC CLEARED — TRAFFIC MONITOR WEST</b> ✅
+`✅ <b>TRAFFIC EASING / CLEARED — TRAFFIC MONITOR WEST</b> ✅
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
-🟢 <b>Status:</b> Traffic is now moving freely!
-🚗 <b>Speed Restored:</b> ${currentSpeed} km/h
+${status === 'yellow' ? '🟡 <b>Status:</b> Traffic is now moving slowly (Yellow).' : '🟢 <b>Status:</b> Road is completely clear (Green)!'}
+🚗 <b>Current Speed:</b> ${currentSpeed} km/h
 
 — <b>Traffic Monitor West 🚦</b>`;
 
           await sendTelegramAlert(clearedMsg);
         }
 
+        // Reset red stopwatch timer
         redSince = null;
         firstAlertSent = false;
         lastAlertSentAt = null;
@@ -225,7 +232,7 @@ async function checkSpotTraffic(spot) {
   return null;
 }
 
-// 🔄 1-Minute Live Parallel Monitoring Loop
+// 🔄 1-Minute Live Parallel Scan Loop
 async function monitorAll() {
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
@@ -245,9 +252,8 @@ async function monitorAll() {
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Scanning all 21 West spots in parallel (Zoom 18)...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Parallel 1-Min Scan running for 21 West spots...`);
 
-  // Scan all 21 spots simultaneously!
   const results = await Promise.all(spots.map(spot => checkSpotTraffic(spot)));
 
   results.forEach(result => {
@@ -278,7 +284,7 @@ app.get('/api/traffic', (req, res) => {
   });
 });
 
-// 🌐 Web Dashboard UI (Live Stopwatch on Jammed Cards)
+// 🌐 Web Dashboard UI
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -391,7 +397,7 @@ app.get('/', (req, res) => {
           var sStr = sc < 10 ? '0' + sc : sc;
           var initialJamText = s.status === 'red' ? ('🚨 JAMMED FOR: ' + mStr + ':' + sStr) : '';
 
-          var delayText = s.delaySeconds >= 30 ? ('+' + Math.round(s.delaySeconds / 60) + ' min (' + s.delaySeconds + 's delay)') : (s.delaySeconds > 0 ? ('+' + s.delaySeconds + 's delay') : 'None');
+          var delayText = (s.delaySeconds >= 45) ? ('+' + Math.round(s.delaySeconds / 60) + ' min (' + s.delaySeconds + 's delay)') : (s.delaySeconds > 0 ? ('+' + s.delaySeconds + 's delay') : 'None');
 
           card.innerHTML = 
             '<div class="card-top">' +
@@ -421,6 +427,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log('🚀 Traffic Monitor West (High-Sensitivity Engine) running on port ' + PORT);
+  console.log('🚀 Traffic Monitor West (Dynamic Sensitivity Engine) running on port ' + PORT);
   monitorAll().then(() => scheduleNextCheck());
 });
