@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 MULTI-KEY POOL (Only 1 or 2 keys needed!)
+// 🔑 MULTI-KEY POOL (2 Keys are plenty!)
 const TOMTOM_KEYS = [
   process.env.TOMTOM_KEY_1 || process.env.TOMTOM_KEY || "",
   process.env.TOMTOM_KEY_2 || ""
@@ -16,27 +16,24 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
 let keyIndex = 0;
 
-// 📍 21 EXACT DOMBIVLI WEST LOCATIONS (With Priority Tiers)
+// 📍 21 EXACT DOMBIVLI WEST LOCATIONS
 const spots = [
-  // 🔴 Tier 1: Major Heavy Bottlenecks (Always scanned every 1 min)
   { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.216683, lng: 73.084526, priority: 1 },
   { id: 2,  name: "Kopar Road (West)",                   lat: 19.215344, lng: 73.081659, priority: 1 },
+  { id: 3,  name: "Retibandar Road (West)",              lat: 19.224981, lng: 73.075574, priority: 1 },
+  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.226838, lng: 73.077923, priority: 1 },
   { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.219529, lng: 73.084562, priority: 1 },
-  { id: 7,  name: "Elephant Fountain Circle (West)",     lat: 19.222038, lng: 73.081989, priority: 1 },
-  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.222871, lng: 73.086402, priority: 1 },
-  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.227108, lng: 73.085180, priority: 1 },
-  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.222784, lng: 73.093368, priority: 1 },
-  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.223746, lng: 73.093092, priority: 1 },
-
-  // 🟡 Tier 2: Connecting Roads (Scanned 1-2 min / Instant lock when active)
-  { id: 3,  name: "Retibandar Road (West)",              lat: 19.224981, lng: 73.075574, priority: 2 },
-  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.226838, lng: 73.077923, priority: 2 },
   { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.220317, lng: 73.081626, priority: 2 },
+  { id: 7,  name: "Elephant Fountain Circle (West)",     lat: 19.222038, lng: 73.081989, priority: 1 },
   { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.222099, lng: 73.085016, priority: 2 },
   { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.222227, lng: 73.082514, priority: 2 },
+  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.222871, lng: 73.086402, priority: 1 },
+  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.227108, lng: 73.085180, priority: 1 },
   { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.222964, lng: 73.086905, priority: 2 },
   { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.218919, lng: 73.086973, priority: 2 },
   { id: 14, name: "Gokhale Road (West)",                 lat: 19.221321, lng: 73.089710, priority: 2 },
+  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.222784, lng: 73.093368, priority: 1 },
+  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.223746, lng: 73.093092, priority: 1 },
   { id: 17, name: "Everest Gali (West)",                 lat: 19.219247, lng: 73.086153, priority: 2 },
   { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.219564, lng: 73.085172, priority: 2 },
   { id: 19, name: "Thakurwadi Road (West)",              lat: 19.221747, lng: 73.079805, priority: 2 },
@@ -82,14 +79,15 @@ async function sendTelegramAlert(htmlMessage) {
   }
 }
 
-// 🚦 Check Spot Traffic via TomTom (Rotating Key Pool)
+// 🚦 Street-Level Zoom-18 Flow Segment Check
 async function checkSpotTraffic(spot) {
   if (TOMTOM_KEYS.length === 0) return null;
 
   const currentKey = TOMTOM_KEYS[keyIndex % TOMTOM_KEYS.length];
   keyIndex++;
 
-  const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${spot.lat},${spot.lng}&unit=KMPH&key=${currentKey}`;
+  // 🎯 ZOOM LEVEL 18 (Pinpoint street precision instead of 10)
+  const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/18/json?point=${spot.lat},${spot.lng}&unit=KMPH&key=${currentKey}`;
 
   try {
     const res = await fetch(url, { timeout: 4000 });
@@ -99,18 +97,27 @@ async function checkSpotTraffic(spot) {
 
     if (data && data.flowSegmentData) {
       const flow = data.flowSegmentData;
-      const currentSpeed = Math.round(flow.currentSpeed) || 25;
-      const freeFlow = Math.round(flow.freeFlowSpeed) || 30;
-      const delaySeconds = Math.max(0, (flow.currentTravelTime || 30) - (flow.freeFlowTravelTime || 30));
+      const currentSpeed = Math.round(flow.currentSpeed) || 20;
+      const freeFlow = Math.max(25, Math.round(flow.freeFlowSpeed) || 30);
+      
+      const currentTravelTime = flow.currentTravelTime || 30;
+      const freeFlowTravelTime = flow.freeFlowTravelTime || 25;
+      const delaySeconds = Math.max(0, currentTravelTime - freeFlowTravelTime);
       const delayMinutes = Math.round(delaySeconds / 60);
 
+      const delayRatio = currentTravelTime / (freeFlowTravelTime || 1);
+
+      // 🇮🇳 STRICT INDIAN CITY CONGESTION CALIBRATION
       let status = 'green';
       let statusText = '🟢 CLEAR';
 
-      if (currentSpeed < (freeFlow * 0.4) || delayMinutes >= 2) {
+      // 🔴 RED: Crawling <= 14 km/h, OR travel time 40%+ longer, OR speed < 60% of normal
+      if (currentSpeed <= 14 || delayRatio >= 1.4 || currentSpeed < (freeFlow * 0.60) || delayMinutes >= 2) {
         status = 'red';
         statusText = '🚨 JAMMED';
-      } else if (currentSpeed < (freeFlow * 0.75) || delayMinutes >= 1) {
+      } 
+      // 🟡 YELLOW: Slow moving <= 22 km/h
+      else if (currentSpeed <= 22 || delayRatio >= 1.15 || currentSpeed < (freeFlow * 0.80) || delayMinutes >= 1) {
         status = 'yellow';
         statusText = '⚠️ SLOW';
       }
@@ -176,7 +183,7 @@ async function checkSpotTraffic(spot) {
           }
         }
       } else {
-        // ✅ 3. TRAFFIC CLEARED NOTIFICATION
+        // ✅ 3. TRAFFIC CLEARED
         if (firstAlertSent) {
           const clearedMsg = 
 `✅ <b>TRAFFIC CLEARED — TRAFFIC MONITOR WEST</b> ✅
@@ -214,7 +221,7 @@ async function checkSpotTraffic(spot) {
   return null;
 }
 
-// 🔄 1-Minute Adaptive Smart Loop
+// 🔄 1-Minute Adaptive Smart Scan Loop
 async function monitorAll() {
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
@@ -230,25 +237,21 @@ async function monitorAll() {
   }
 
   if (isNightMode) {
-    console.log(`☀️ Resuming 1-minute adaptive tracking...`);
+    console.log(`☀️ Resuming 1-minute tracking...`);
     isNightMode = false;
   }
 
   cycleCount++;
 
-  // 🎯 Filter spots to scan in this 1-minute cycle:
-  // - All Priority 1 spots (Every 1 min)
-  // - ANY spot that is currently RED or YELLOW (Instant 1-min lock-on)
-  // - Half of Priority 2 spots in alternating cycles
+  // Scan Priority 1 spots + all currently Yellow/Red spots + rolling Priority 2 spots
   const spotsToScan = spots.filter((s, idx) => {
     const live = liveTrafficData.find(l => l.id === s.id);
     if (live && (live.status === 'red' || live.status === 'yellow')) return true; // Jam lock-on!
-    if (s.priority === 1) return true; // Major bottlenecks
-    return (idx % 2 === cycleCount % 2); // Rolling cycle for clear secondary lanes
+    if (s.priority === 1) return true;
+    return (idx % 2 === cycleCount % 2);
   });
 
-  const startTime = Date.now();
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Scanning ${spotsToScan.length} active spots in parallel...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Street-level (Zoom 18) Scan for ${spotsToScan.length} spots...`);
 
   const results = await Promise.all(spotsToScan.map(spot => checkSpotTraffic(spot)));
 
@@ -259,12 +262,10 @@ async function monitorAll() {
     }
   });
 
-  const duration = Date.now() - startTime;
-  console.log(`⚡ 1-Minute Adaptive Scan finished in ${duration}ms!`);
   lastCheckTime = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) + " IST";
 }
 
-// ⏰ Scan every 60 seconds (1 minute sharp)
+// ⏰ Scan every 60 seconds
 function scheduleNextCheck() {
   setTimeout(async () => {
     await monitorAll();
@@ -282,7 +283,7 @@ app.get('/api/traffic', (req, res) => {
   });
 });
 
-// 🌐 Web Dashboard UI (Ticking Stopwatch on Red Cards)
+// 🌐 Web Dashboard UI (Live Stopwatch on Jammed Cards)
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -325,7 +326,7 @@ app.get('/', (req, res) => {
 <body>
   <header>
     <h1>🚦 Traffic Monitor West</h1>
-    <p class="subtitle">21 Pinpoint Locations • 1-Min Live Scan • Telegram 2-Min Alert & 5-Min Updates</p>
+    <p class="subtitle">21 Pinpoint Locations • 1-Min Street Precision Scan • Telegram Dispatch</p>
   </header>
   <div class="bar">
     <div><span class="pulse"></span> <strong id="mode">SYSTEM ACTIVE 24/7</strong></div>
@@ -379,7 +380,7 @@ app.get('/', (req, res) => {
         var data = await res.json();
         cachedData = data.locations || [];
         document.getElementById('time').innerText = "Last scan: " + (data.updatedAt || 'Now');
-        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — SCANNING EVERY 1 MIN";
+        document.getElementById('mode').innerText = data.nightMode ? "🌙 NIGHT MODE (11PM-8AM)" : "☀️ LIVE — 1-MIN STREET PRECISION";
         
         var grid = document.getElementById('grid');
         grid.innerHTML = '';
@@ -423,6 +424,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log('🚀 Traffic Monitor West (Adaptive 1-Min Engine) running on port ' + PORT);
+  console.log('🚀 Traffic Monitor West (Calibrated Engine) running on port ' + PORT);
   monitorAll().then(() => scheduleNextCheck());
 });
