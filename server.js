@@ -5,46 +5,48 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 OLA OAUTH CREDENTIALS & TELEGRAM
-const OLA_CLIENT_ID = process.env.OLA_CLIENT_ID || "";
-const OLA_CLIENT_SECRET = process.env.OLA_CLIENT_SECRET || "";
-const OLA_API_KEY = process.env.OLA_API_KEY || ""; // Fallback if direct key provided
+// 🔑 MULTI-KEY POOL (Only 1 or 2 keys needed!)
+const TOMTOM_KEYS = [
+  process.env.TOMTOM_KEY_1 || process.env.TOMTOM_KEY || "",
+  process.env.TOMTOM_KEY_2 || ""
+].filter(k => k && k.length > 15);
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
-// In-memory OAuth Token Cache
-let cachedAccessToken = null;
-let tokenExpiresAt = 0;
+let keyIndex = 0;
 
-// 📍 21 EXACT DOMBIVLI WEST LOCATIONS
+// 📍 21 EXACT DOMBIVLI WEST LOCATIONS (With Priority Tiers)
 const spots = [
-  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.216683, lng: 73.084526, dLat: 19.217300, dLng: 73.085500 },
-  { id: 2,  name: "Kopar Road (West)",                   lat: 19.215344, lng: 73.081659, dLat: 19.216200, dLng: 73.082200 },
-  { id: 3,  name: "Retibandar Road (West)",              lat: 19.224981, lng: 73.075574, dLat: 19.224200, dLng: 73.076200 },
-  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.226838, lng: 73.077923, dLat: 19.226000, dLng: 73.078500 },
-  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.219529, lng: 73.084562, dLat: 19.218500, dLng: 73.084500 },
-  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.220317, lng: 73.081626, dLat: 19.219500, dLng: 73.081600 },
-  { id: 7,  name: "Elephant Fountain Circle (West)",     lat: 19.222038, lng: 73.081989, dLat: 19.221500, dLng: 73.082500 },
-  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.222099, lng: 73.085016, dLat: 19.221200, dLng: 73.085000 },
-  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.222227, lng: 73.082514, dLat: 19.221500, dLng: 73.082500 },
-  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.222871, lng: 73.086402, dLat: 19.222200, dLng: 73.086400 },
-  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.227108, lng: 73.085180, dLat: 19.226200, dLng: 73.085200 },
-  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.222964, lng: 73.086905, dLat: 19.222100, dLng: 73.086900 },
-  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.218919, lng: 73.086973, dLat: 19.218000, dLng: 73.086900 },
-  { id: 14, name: "Gokhale Road (West)",                 lat: 19.221321, lng: 73.089710, dLat: 19.220500, dLng: 73.089700 },
-  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.222784, lng: 73.093368, dLat: 19.223500, dLng: 73.093000 },
-  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.223746, lng: 73.093092, dLat: 19.224400, dLng: 73.092500 },
-  { id: 17, name: "Everest Gali (West)",                 lat: 19.219247, lng: 73.086153, dLat: 19.218500, dLng: 73.086100 },
-  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.219564, lng: 73.085172, dLat: 19.218800, dLng: 73.085100 },
-  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.221747, lng: 73.079805, dLat: 19.221000, dLng: 73.079800 },
-  { id: 20, name: "Swami Vivekanand Lane (West)",        lat: 19.219120, lng: 73.082727, dLat: 19.218400, dLng: 73.082700 },
-  { id: 21, name: "Devi Chowk (West)",                   lat: 19.219245, lng: 73.082462, dLat: 19.218500, dLng: 73.082400 }
+  // 🔴 Tier 1: Major Heavy Bottlenecks (Always scanned every 1 min)
+  { id: 1,  name: "East-West Flyover (Centre)",          lat: 19.216683, lng: 73.084526, priority: 1 },
+  { id: 2,  name: "Kopar Road (West)",                   lat: 19.215344, lng: 73.081659, priority: 1 },
+  { id: 5,  name: "Pandit Deendayal Upadhyay Marg (W)",  lat: 19.219529, lng: 73.084562, priority: 1 },
+  { id: 7,  name: "Elephant Fountain Circle (West)",     lat: 19.222038, lng: 73.081989, priority: 1 },
+  { id: 10, name: "Ganesh Chowk (West)",                 lat: 19.222871, lng: 73.086402, priority: 1 },
+  { id: 11, name: "Mahatma Phule Road (West)",           lat: 19.227108, lng: 73.085180, priority: 1 },
+  { id: 15, name: "Thakurli Flyover (West)",             lat: 19.222784, lng: 73.093368, priority: 1 },
+  { id: 16, name: "East to West Thakurli Bridge (W)",    lat: 19.223746, lng: 73.093092, priority: 1 },
+
+  // 🟡 Tier 2: Connecting Roads (Scanned 1-2 min / Instant lock when active)
+  { id: 3,  name: "Retibandar Road (West)",              lat: 19.224981, lng: 73.075574, priority: 2 },
+  { id: 4,  name: "Retibandar Cross Road (West)",        lat: 19.226838, lng: 73.077923, priority: 2 },
+  { id: 6,  name: "Mumbra Devi Road (West)",             lat: 19.220317, lng: 73.081626, priority: 2 },
+  { id: 8,  name: "Ghanshyam Gupte Road (West)",         lat: 19.222099, lng: 73.085016, priority: 2 },
+  { id: 9,  name: "Nana Shankar Seth Road (West)",       lat: 19.222227, lng: 73.082514, priority: 2 },
+  { id: 12, name: "Subhash Chandra Bose Road (West)",    lat: 19.222964, lng: 73.086905, priority: 2 },
+  { id: 13, name: "Mahatma Gandhi Road (West)",          lat: 19.218919, lng: 73.086973, priority: 2 },
+  { id: 14, name: "Gokhale Road (West)",                 lat: 19.221321, lng: 73.089710, priority: 2 },
+  { id: 17, name: "Everest Gali (West)",                 lat: 19.219247, lng: 73.086153, priority: 2 },
+  { id: 18, name: "Ghanshyam Gupte Cross Rd No.1 (W)",   lat: 19.219564, lng: 73.085172, priority: 2 },
+  { id: 19, name: "Thakurwadi Road (West)",              lat: 19.221747, lng: 73.079805, priority: 2 },
+  { id: 20, name: "Swami Vivekanand Lane (West)",        lat: 19.219120, lng: 73.082727, priority: 2 },
+  { id: 21, name: "Devi Chowk (West)",                   lat: 19.219245, lng: 73.082462, priority: 2 }
 ];
 
 let liveTrafficData = spots.map(s => ({
   ...s,
-  currentSpeed: 24,
+  currentSpeed: 25,
   freeFlowSpeed: 30,
   delayMinutes: 0,
   status: 'green',
@@ -57,40 +59,7 @@ let liveTrafficData = spots.map(s => ({
 
 let lastCheckTime = null;
 let isNightMode = false;
-
-// 🔐 Automated OAuth Token Generator
-async function getOlaAccessToken() {
-  if (cachedAccessToken && Date.now() < tokenExpiresAt) {
-    return cachedAccessToken;
-  }
-
-  if (!OLA_CLIENT_ID || !OLA_CLIENT_SECRET) {
-    return OLA_API_KEY; // Return direct key if provided
-  }
-
-  try {
-    const res = await fetch('https://account.olakrutrim.com/v1/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: OLA_CLIENT_ID,
-        client_secret: OLA_CLIENT_SECRET,
-        grant_type: 'client_credentials'
-      })
-    });
-
-    const data = await res.json();
-    if (data && data.access_token) {
-      cachedAccessToken = data.access_token;
-      tokenExpiresAt = Date.now() + ((data.expires_in || 3600) - 300) * 1000;
-      console.log('✅ Generated fresh Ola OAuth Access Token!');
-      return cachedAccessToken;
-    }
-  } catch (err) {
-    console.error('❌ Failed to fetch Ola OAuth token:', err.message);
-  }
-  return OLA_API_KEY;
-}
+let cycleCount = 0;
 
 // 📲 Send Instant Alert to Telegram
 async function sendTelegramAlert(htmlMessage) {
@@ -113,54 +82,35 @@ async function sendTelegramAlert(htmlMessage) {
   }
 }
 
-// 🚦 Check Spot Traffic via Ola Krutrim Engine
+// 🚦 Check Spot Traffic via TomTom (Rotating Key Pool)
 async function checkSpotTraffic(spot) {
-  const token = await getOlaAccessToken();
-  const url = `https://api.olamaps.io/routing/v1/directions?origin=${spot.lat},${spot.lng}&destination=${spot.dLat},${spot.dLng}&mode=driving`;
+  if (TOMTOM_KEYS.length === 0) return null;
+
+  const currentKey = TOMTOM_KEYS[keyIndex % TOMTOM_KEYS.length];
+  keyIndex++;
+
+  const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${spot.lat},${spot.lng}&unit=KMPH&key=${currentKey}`;
 
   try {
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-Request-Id': 'dombivli-west-' + Date.now()
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      headers['X-Api-Key'] = token;
-    }
-
-    const res = await fetch(url + `&api_key=${token}`, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({})
-    });
+    const res = await fetch(url, { timeout: 4000 });
+    if (!res.ok) return null;
 
     const data = await res.json();
 
-    if (data && data.routes && data.routes.length > 0) {
-      const leg = data.routes[0].legs ? data.routes[0].legs[0] : {};
-
-      let distanceMeters = 250;
-      if (typeof leg.distance === 'number') distanceMeters = leg.distance;
-      else if (leg.distance && typeof leg.distance.value === 'number') distanceMeters = leg.distance.value;
-
-      let durationSeconds = 30;
-      if (typeof leg.duration === 'number') durationSeconds = leg.duration;
-      else if (leg.duration && typeof leg.duration.value === 'number') durationSeconds = leg.duration.value;
-
-      const speedKmph = Math.max(3, Math.min(50, Math.round((distanceMeters / 1000) / (durationSeconds / 3600)))) || 25;
-      const normalSpeed = 30;
-      const normalDuration = Math.round((distanceMeters / 1000) / (normalSpeed / 3600)) || 30;
-      const delaySeconds = Math.max(0, durationSeconds - normalDuration);
+    if (data && data.flowSegmentData) {
+      const flow = data.flowSegmentData;
+      const currentSpeed = Math.round(flow.currentSpeed) || 25;
+      const freeFlow = Math.round(flow.freeFlowSpeed) || 30;
+      const delaySeconds = Math.max(0, (flow.currentTravelTime || 30) - (flow.freeFlowTravelTime || 30));
       const delayMinutes = Math.round(delaySeconds / 60);
 
       let status = 'green';
       let statusText = '🟢 CLEAR';
 
-      if (speedKmph <= 8 || delayMinutes >= 2) {
+      if (currentSpeed < (freeFlow * 0.4) || delayMinutes >= 2) {
         status = 'red';
         statusText = '🚨 JAMMED';
-      } else if (speedKmph <= 18 || delayMinutes >= 1) {
+      } else if (currentSpeed < (freeFlow * 0.75) || delayMinutes >= 1) {
         status = 'yellow';
         statusText = '⚠️ SLOW';
       }
@@ -191,9 +141,8 @@ async function checkSpotTraffic(spot) {
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 ⏱️ <b>Status:</b> STATIONARY for <b>2+ minutes!</b>
-🚗 <b>Current Flow:</b> ${speedKmph} km/h (Normal: ${normalSpeed} km/h)
+🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
 ⏳ <b>Estimated Delay:</b> +${delayMinutes} mins
-📡 <b>Engine:</b> Ola Krutrim Maps India
 
 🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
 
@@ -215,7 +164,7 @@ async function checkSpotTraffic(spot) {
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 ⏱️ <b>Jam Duration:</b> Ongoing for <b>${minsStuck} minutes!</b>
-🚗 <b>Current Flow:</b> ${speedKmph} km/h (Normal: ${normalSpeed} km/h)
+🚗 <b>Current Flow:</b> ${currentSpeed} km/h (Normal: ${freeFlow} km/h)
 ⏳ <b>Delay:</b> +${delayMinutes} mins
 
 🗺️ <a href="${mapLink}">👉 Open Pin-Point GPS in Google Maps</a>
@@ -227,14 +176,14 @@ async function checkSpotTraffic(spot) {
           }
         }
       } else {
-        // ✅ 3. TRAFFIC CLEARED
+        // ✅ 3. TRAFFIC CLEARED NOTIFICATION
         if (firstAlertSent) {
           const clearedMsg = 
 `✅ <b>TRAFFIC CLEARED — TRAFFIC MONITOR WEST</b> ✅
 
 📍 <b>Spot:</b> #${spot.id}. ${spot.name}
 🟢 <b>Status:</b> Traffic is now moving freely!
-🚗 <b>Speed Restored:</b> ${speedKmph} km/h
+🚗 <b>Speed Restored:</b> ${currentSpeed} km/h
 
 — <b>Traffic Monitor West 🚦</b>`;
 
@@ -248,8 +197,8 @@ async function checkSpotTraffic(spot) {
 
       return {
         ...spot,
-        currentSpeed: speedKmph,
-        freeFlowSpeed: normalSpeed,
+        currentSpeed,
+        freeFlowSpeed: freeFlow,
         delayMinutes,
         status,
         statusText,
@@ -260,12 +209,12 @@ async function checkSpotTraffic(spot) {
       };
     }
   } catch (err) {
-    console.error(`Error checking spot ${spot.name}:`, err.message);
+    // Fail silently
   }
   return null;
 }
 
-// 🔄 1-Minute Live Monitoring Loop
+// 🔄 1-Minute Adaptive Smart Loop
 async function monitorAll() {
   const istHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
 
@@ -281,24 +230,41 @@ async function monitorAll() {
   }
 
   if (isNightMode) {
-    console.log(`☀️ Resuming 1-minute daytime tracking...`);
+    console.log(`☀️ Resuming 1-minute adaptive tracking...`);
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 1-Min Scan running via Ola Krutrim Maps (OAuth)...`);
+  cycleCount++;
 
-  for (let i = 0; i < spots.length; i++) {
-    const result = await checkSpotTraffic(spots[i]);
+  // 🎯 Filter spots to scan in this 1-minute cycle:
+  // - All Priority 1 spots (Every 1 min)
+  // - ANY spot that is currently RED or YELLOW (Instant 1-min lock-on)
+  // - Half of Priority 2 spots in alternating cycles
+  const spotsToScan = spots.filter((s, idx) => {
+    const live = liveTrafficData.find(l => l.id === s.id);
+    if (live && (live.status === 'red' || live.status === 'yellow')) return true; // Jam lock-on!
+    if (s.priority === 1) return true; // Major bottlenecks
+    return (idx % 2 === cycleCount % 2); // Rolling cycle for clear secondary lanes
+  });
+
+  const startTime = Date.now();
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] ⚡ Scanning ${spotsToScan.length} active spots in parallel...`);
+
+  const results = await Promise.all(spotsToScan.map(spot => checkSpotTraffic(spot)));
+
+  results.forEach(result => {
     if (result) {
-      const idx = liveTrafficData.findIndex(s => s.id === spots[i].id);
+      const idx = liveTrafficData.findIndex(s => s.id === result.id);
       if (idx !== -1) liveTrafficData[idx] = result;
     }
-    await new Promise(r => setTimeout(r, 40));
-  }
+  });
+
+  const duration = Date.now() - startTime;
+  console.log(`⚡ 1-Minute Adaptive Scan finished in ${duration}ms!`);
   lastCheckTime = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) + " IST";
 }
 
-// ⏰ Schedule Every 1 Minute
+// ⏰ Scan every 60 seconds (1 minute sharp)
 function scheduleNextCheck() {
   setTimeout(async () => {
     await monitorAll();
@@ -311,12 +277,12 @@ app.get('/api/traffic', (req, res) => {
   res.json({
     updatedAt: lastCheckTime,
     nightMode: isNightMode,
-    engine: "Ola Krutrim Maps India (OAuth)",
+    activeKeysCount: TOMTOM_KEYS.length,
     locations: liveTrafficData
   });
 });
 
-// 🌐 Web Dashboard UI
+// 🌐 Web Dashboard UI (Ticking Stopwatch on Red Cards)
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -457,6 +423,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log('🚀 Traffic Monitor West (Ola Krutrim OAuth Engine) running on port ' + PORT);
+  console.log('🚀 Traffic Monitor West (Adaptive 1-Min Engine) running on port ' + PORT);
   monitorAll().then(() => scheduleNextCheck());
 });
