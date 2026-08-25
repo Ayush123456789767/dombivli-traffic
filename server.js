@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
-// 🔑 API KEYS (Set in Render Environment Variables)
+// 🔑 API KEYS (From Render Environment Variables)
 const OLA_API_KEY = process.env.OLA_API_KEY || "YOUR_OLA_API_KEY_HERE";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
@@ -37,11 +37,11 @@ const spots = [
 
 let liveTrafficData = spots.map(s => ({
   ...s,
-  currentSpeed: 0,
+  currentSpeed: 25,
   freeFlowSpeed: 30,
   delayMinutes: 0,
-  status: 'gray',
-  statusText: 'WAITING',
+  status: 'green',
+  statusText: '🟢 CLEAR',
   redSince: null,
   firstAlertSent: false,
   lastAlertSentAt: null,
@@ -77,22 +77,36 @@ async function checkSpotTraffic(spot) {
   const destLat = (spot.lat + 0.0012).toFixed(6);
   const destLng = (spot.lng + 0.0012).toFixed(6);
 
-  const url = `https://api.olamaps.io/routing/v1/directions?origin=${spot.lat},${spot.lng}&destination=${destLat},${destLng}&mode=driving&traffic_metadata=true&api_key=${OLA_API_KEY}`;
+  const url = `https://api.olamaps.io/routing/v1/directions?origin=${spot.lat},${spot.lng}&destination=${destLat},${destLng}&mode=driving&api_key=${OLA_API_KEY}`;
 
   try {
     const res = await fetch(url, {
       headers: { 'X-Request-Id': 'dombivli-west-' + Date.now() }
     });
+
+    if (!res.ok) {
+      console.error(`⚠️ Ola API Error [${res.status}] for ${spot.name}`);
+      return null;
+    }
+
     const data = await res.json();
 
     if (data && data.routes && data.routes.length > 0) {
-      const leg = data.routes[0].legs[0];
-      const distanceMeters = leg.distance || 200;
-      const durationSeconds = leg.duration || 30;
+      const leg = data.routes[0].legs ? data.routes[0].legs[0] : {};
 
-      const speedKmph = Math.max(2, Math.round((distanceMeters / 1000) / (durationSeconds / 3600)));
+      // Handle both number and object formats safely
+      let distanceMeters = 300;
+      if (typeof leg.distance === 'number') distanceMeters = leg.distance;
+      else if (leg.distance && typeof leg.distance.value === 'number') distanceMeters = leg.distance.value;
+
+      let durationSeconds = 35;
+      if (typeof leg.duration === 'number') durationSeconds = leg.duration;
+      else if (leg.duration && typeof leg.duration.value === 'number') durationSeconds = leg.duration.value;
+
+      // Safe speed calculation in km/h
+      const speedKmph = Math.max(3, Math.min(60, Math.round((distanceMeters / 1000) / (durationSeconds / 3600)))) || 25;
       const normalSpeed = 30;
-      const normalDuration = Math.round((distanceMeters / 1000) / (normalSpeed / 3600));
+      const normalDuration = Math.round((distanceMeters / 1000) / (normalSpeed / 3600)) || 30;
       const delaySeconds = Math.max(0, durationSeconds - normalDuration);
       const delayMinutes = Math.round(delaySeconds / 60);
 
@@ -122,7 +136,7 @@ async function checkSpotTraffic(spot) {
         const totalSecondsStuck = Math.floor((now - redSince) / 1000);
         const minsStuck = Math.floor(totalSecondsStuck / 60);
 
-        // 🚨 1. INITIAL ALERT AT 2 MINUTES (120 Seconds)
+        // 🚨 1. INITIAL ALERT AT 2 MINUTES
         if (totalSecondsStuck >= 120 && !firstAlertSent) {
           isAlert = true;
           firstAlertSent = true;
@@ -144,8 +158,7 @@ async function checkSpotTraffic(spot) {
 
           await sendTelegramAlert(initialMsg);
         }
-
-        // 🔄 2. RECURRING UPDATE EVERY 5 MINUTES AFTER THE INITIAL ALERT
+        // 🔄 2. RECURRING UPDATE EVERY 5 MINUTES
         else if (firstAlertSent) {
           isAlert = true;
           const minsSinceLastAlert = Math.floor((now - lastAlertSentAt) / 60000);
@@ -170,7 +183,7 @@ async function checkSpotTraffic(spot) {
           }
         }
       } else {
-        // ✅ 3. TRAFFIC CLEARED NOTIFICATION
+        // ✅ 3. TRAFFIC CLEARED
         if (firstAlertSent) {
           const clearedMsg = 
 `✅ <b>TRAFFIC CLEARED — TRAFFIC MONITOR WEST</b> ✅
@@ -228,7 +241,7 @@ async function monitorAll() {
     isNightMode = false;
   }
 
-  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 1-Min Scan running for 21 West spots...`);
+  console.log(`[${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST] 🔍 1-Min Scan running via Ola Krutrim Maps...`);
 
   for (let i = 0; i < spots.length; i++) {
     const result = await checkSpotTraffic(spots[i]);
@@ -290,7 +303,6 @@ app.get('/', (req, res) => {
     .tag.yellow{background:#713f12;color:#fde047}
     .tag.gray{background:#334155;color:#94a3b8}
     
-    /* Live Jam Stopwatch */
     .jam-timer{display:none;background:#7f1d1d;color:#fecaca;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-bottom:8px;text-align:center;animation:blink 1.5s infinite}
     .card.red .jam-timer{display:block}
 
@@ -317,7 +329,6 @@ app.get('/', (req, res) => {
     var timerRunning = false;
     var cachedData = [];
 
-    // Ticking Stopwatch for red jammed cards
     setInterval(function() {
       if (!cachedData || cachedData.length === 0) return;
       var now = Date.now();
